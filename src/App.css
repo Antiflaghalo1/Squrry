@@ -48,6 +48,12 @@ h1 { font-size: 20px; font-weight: 800; }
 .cta-btn:active { transform: scale(.98); box-shadow: none; }
 .cta-btn:disabled { background: #ccc; box-shadow: none; cursor: default; }
 
+/* No-budget nudge banner */
+.no-budget-banner { display: flex; align-items: flex-start; gap: 10px; margin: 10px 10px 0; background: #f0f0f0; border: 1px solid var(--border); border-radius: 10px; padding: 11px 12px; font-size: 13px; color: var(--muted); line-height: 1.4; }
+.no-budget-banner span { flex: 1; }
+.no-budget-dismiss { flex-shrink: 0; background: none; border: none; color: #aaa; font-size: 14px; cursor: pointer; padding: 0 2px; line-height: 1; }
+.no-budget-dismiss:active { color: #777; }
+
 /* Results */
 .results-top { padding: 14px 18px 0; }
 .back-btn { background: none; border: none; color: var(--green); font-size: 15px; font-weight: 700; cursor: pointer; padding: 0 0 12px; display: block; }

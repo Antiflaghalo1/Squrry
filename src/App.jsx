@@ -11,6 +11,7 @@ export default function App() {
   const [budget, setBudget] = useState('')
   const [results, setResults] = useState(null)
   const [view, setView] = useState('list')
+  const [showNoBudgetBanner, setShowNoBudgetBanner] = useState(false)
 
   const toggleItem = (itemId) => {
     setSelectedItems(prev => {
@@ -24,6 +25,7 @@ export default function App() {
     if (selectedItems.size === 0) return
     setResults(optimizeBasket([...selectedItems]))
     setView('results')
+    setShowNoBudgetBanner(!budget)
   }
 
   const budgetNum = parseFloat(budget) || 0
@@ -96,6 +98,12 @@ export default function App() {
 
       {view === 'results' && results && (
         <>
+          {showNoBudgetBanner && (
+            <div className="no-budget-banner">
+              <span>Heads up — no budget set. We'll still find you the best prices, just without the over/under tracking. Add one anytime up top. 👆</span>
+              <button className="no-budget-dismiss" onClick={() => setShowNoBudgetBanner(false)}>✕</button>
+            </div>
+          )}
           <div className="results-top">
             <button className="back-btn" onClick={() => setView('list')}>← Edit List</button>
             <div className={`total-card ${overBudget ? 'over' : ''}`}>

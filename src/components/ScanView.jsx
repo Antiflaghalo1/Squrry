@@ -130,11 +130,11 @@ export default function ScanView({ onBack }) {
     setPriceError('')
     if (!price || !productName.trim()) return
     if (isNaN(parsedPrice) || parsedPrice <= 0) {
-      setPriceError('Please enter a valid price.')
+      setPriceError("Hmm, that doesn't look right. Price has to be more than $0 👀")
       return
     }
     if (parsedPrice > 200) {
-      setPriceError('Price seems too high. Max $200.')
+      setPriceError('Whoa, over $200? Double check that — might be an extra zero in there 🤔')
       return
     }
     localStorage.setItem('basketsplit_last_store', storeId)
@@ -281,7 +281,7 @@ export default function ScanView({ onBack }) {
             className="cta-btn"
             style={{ marginTop: 28 }}
             onClick={handleSave}
-            disabled={!price || !productName.trim() || lookingUp || parseFloat(price) <= 0 || parseFloat(price) > 200}
+            disabled={!price || !productName.trim() || lookingUp}
           >
             Save Price →
           </button>
