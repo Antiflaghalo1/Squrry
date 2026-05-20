@@ -109,7 +109,7 @@ export default function ScanView({ onBack }) {
     <div className="scan-view">
       {phase === 'scanning' && (
         <div className="scan-camera-wrap">
-          <video ref={videoRef} className="scan-video" playsInline muted />
+          <video ref={videoRef} className="scan-video" playsInline muted autoPlay/>
           <div className="scan-overlay">
             <div className="scan-frame" />
             <p className="scan-hint">Point at a product barcode</p>
