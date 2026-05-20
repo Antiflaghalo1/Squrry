@@ -6,9 +6,45 @@ import { PRODUCTS } from '../data/products'
 import { addObservation } from '../data/observations'
 import { getCustomStores, addCustomStore } from '../data/customStores'
 
+const WEBHOOK_URL = import.meta.env.VITE_WEBHOOK_URL
+const GPS_RADIUS_M = 400 // auto-select store if within this many meters
+
+// Approximate coords for IE stores — fine-tune per Google Maps if needed
+const STORE_COORDS = {
+  walmart:   { lat: 34.0175, lng: -117.6912 }, // Walmart Chino
+  stater:    { lat: 33.9897, lng: -117.7201 }, // Stater Bros Chino Hills
+  food4less: { lat: 34.0640, lng: -117.6518 }, // Food 4 Less Ontario
+  aldi:      { lat: 33.9839, lng: -117.7151 }, // Aldi Chino Hills
+  cardenas:  { lat: 34.0576, lng: -117.6012 }, // Cardenas Ontario
+  northgate: { lat: 34.0563, lng: -117.6501 }, // Northgate Ontario
+  sprouts:   { lat: 33.9895, lng: -117.7095 }, // Sprouts Chino Hills
+}
+
+function haversine(lat1, lng1, lat2, lng2) {
+  const R = 6371000
+  const dLat = ((lat2 - lat1) * Math.PI) / 180
+  const dLng = ((lng2 - lng1) * Math.PI) / 180
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
+function daysAgo(ts) {
+  const diff = Date.now() - new Date(ts).getTime()
+  const d = Math.floor(diff / 86400000)
+  if (d === 0) return 'today'
+  if (d === 1) return 'yesterday'
+  return `${d}d ago`
+}
+
 export default function ScanView({ onBack }) {
   const videoRef = useRef(null)
   const controlsRef = useRef(null)
+  const photoInputRef = useRef(null)
+
   const [scanKey, setScanKey] = useState(0)
   const [phase, setPhase] = useState('scanning')
   const [barcode, setBarcode] = useState('')
@@ -28,6 +64,47 @@ export default function ScanView({ onBack }) {
   const [addError, setAddError] = useState('')
   const [savedFlash, setSavedFlash] = useState(false)
 
+  // Phase 2.1
+  const [existingPrices, setExistingPrices] = useState([])
+  const [pricesLoading, setPricesLoading] = useState(false)
+  const [gpsStatus, setGpsStatus] = useState('idle') // idle | detecting | detected | failed
+  const [gpsStoreName, setGpsStoreName] = useState('')
+  const [photoDataUrl, setPhotoDataUrl] = useState(null)
+
+  // GPS — runs once on mount
+  useEffect(() => {
+    if (!navigator.geolocation) return
+    setGpsStatus('detecting')
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords
+        let closestId = null
+        let minDist = Infinity
+        for (const [id, coords] of Object.entries(STORE_COORDS)) {
+          const dist = haversine(latitude, longitude, coords.lat, coords.lng)
+          if (dist < minDist) {
+            minDist = dist
+            closestId = id
+          }
+        }
+        if (closestId && minDist <= GPS_RADIUS_M) {
+          const allStores = [...STORES, ...getCustomStores()]
+          const match = allStores.find(s => s.id === closestId)
+          if (match) {
+            setStoreId(closestId)
+            setGpsStoreName(match.name)
+            setGpsStatus('detected')
+            return
+          }
+        }
+        setGpsStatus('failed')
+      },
+      () => setGpsStatus('failed'),
+      { timeout: 8000, maximumAge: 60000 }
+    )
+  }, [])
+
+  // Barcode scanner
   useEffect(() => {
     let cancelled = false
 
@@ -49,6 +126,7 @@ export default function ScanView({ onBack }) {
             setBarcode(code)
             setPhase('found')
             lookUpProduct(code)
+            fetchExistingPrices(code)
           }
         )
         .then(controls => {
@@ -71,6 +149,28 @@ export default function ScanView({ onBack }) {
     }
   }, [scanKey])
 
+  async function fetchExistingPrices(code) {
+    if (!WEBHOOK_URL) return
+    setPricesLoading(true)
+    try {
+      const res = await fetch(WEBHOOK_URL)
+      const data = await res.json()
+      const matches = data
+        .filter(
+          row =>
+            String(row.barcode) === String(code) &&
+            Number(row.price) > 0 &&
+            Number(row.price) <= 200
+        )
+        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+        .slice(0, 3)
+      setExistingPrices(matches)
+    } catch {
+      setExistingPrices([])
+    }
+    setPricesLoading(false)
+  }
+
   async function lookUpProduct(code) {
     if (PRODUCTS[code]) {
       setProductName(PRODUCTS[code])
@@ -86,6 +186,14 @@ export default function ScanView({ onBack }) {
       }
     } catch {}
     setLookingUp(false)
+  }
+
+  function handlePhotoCapture(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => setPhotoDataUrl(ev.target.result)
+    reader.readAsDataURL(file)
   }
 
   function slugify(str) {
@@ -144,6 +252,7 @@ export default function ScanView({ onBack }) {
       storeId,
       price: parseFloat(parsedPrice.toFixed(2)),
       timestamp: Date.now(),
+      hasPhoto: !!photoDataUrl,
     })
     setPhase('saved')
   }
@@ -154,6 +263,8 @@ export default function ScanView({ onBack }) {
     setPrice('')
     setPriceError('')
     setLookingUp(false)
+    setExistingPrices([])
+    setPhotoDataUrl(null)
     setStoreId(localStorage.getItem('basketsplit_last_store') || STORES[0].id)
     setShowAddStore(false)
     setSavedFlash(false)
@@ -166,22 +277,54 @@ export default function ScanView({ onBack }) {
 
   return (
     <div className="scan-view">
+
+      {/* ── SCANNING ── */}
       {phase === 'scanning' && (
         <div className="scan-camera-wrap">
           <video ref={videoRef} className="scan-video" playsInline muted autoPlay />
           <div className="scan-overlay">
             <div className="scan-frame" />
             <p className="scan-hint">Point at a product barcode</p>
+            {gpsStatus === 'detected' && (
+              <p className="scan-gps-badge">📍 {gpsStoreName} detected</p>
+            )}
           </div>
           <button className="scan-back-btn" onClick={onBack}>← Back</button>
         </div>
       )}
 
+      {/* ── FOUND ── */}
       {phase === 'found' && (
         <div className="scan-form">
           <button className="back-btn" onClick={onBack}>← Cancel</button>
           <p className="scan-code-label">Barcode: <strong>{barcode}</strong></p>
 
+          {/* Existing prices from database */}
+          {pricesLoading && (
+            <div className="existing-prices-loading">🔍 Checking our database…</div>
+          )}
+          {!pricesLoading && existingPrices.length > 0 && (
+            <div className="existing-prices-card">
+              <p className="existing-prices-title">📊 We have this item</p>
+              {existingPrices.map((row, i) => {
+                const store = allStores.find(s => s.id === row.storeId)
+                return (
+                  <div key={i} className="existing-price-row">
+                    <span className="existing-price-amount">
+                      ${parseFloat(row.price).toFixed(2)}
+                    </span>
+                    <span className="existing-price-store">
+                      {store?.name ?? row.storeId}
+                    </span>
+                    <span className="existing-price-age">{daysAgo(row.timestamp)}</span>
+                  </div>
+                )
+              })}
+              <p className="existing-prices-cta">Still accurate? Update below ↓</p>
+            </div>
+          )}
+
+          {/* Product name */}
           <label className="scan-label">Product Name</label>
           {lookingUp ? (
             <p className="scan-looking">Looking up product…</p>
@@ -194,7 +337,11 @@ export default function ScanView({ onBack }) {
             />
           )}
 
+          {/* Store select */}
           <label className="scan-label">Store</label>
+          {gpsStatus === 'detected' && (
+            <p className="gps-detected-label">📍 Auto-detected: {gpsStoreName}</p>
+          )}
           <select
             className="scan-select"
             value={storeId}
@@ -212,9 +359,7 @@ export default function ScanView({ onBack }) {
             )}
           </select>
 
-          {savedFlash && (
-            <p className="add-store-flash">✓ Store saved!</p>
-          )}
+          {savedFlash && <p className="add-store-flash">✓ Store saved!</p>}
 
           {!showAddStore ? (
             <button
@@ -258,6 +403,7 @@ export default function ScanView({ onBack }) {
             </form>
           )}
 
+          {/* Price input */}
           <label className="scan-label">Price Seen Today</label>
           <div className="scan-price-wrap">
             <span className="scan-dollar">$</span>
@@ -272,9 +418,42 @@ export default function ScanView({ onBack }) {
               onChange={e => { setPrice(e.target.value); setPriceError('') }}
             />
           </div>
-
           {priceError && (
             <p style={{ color: '#C62828', fontSize: 13, marginTop: 8 }}>{priceError}</p>
+          )}
+
+          {/* Photo capture */}
+          <label className="scan-label" style={{ marginTop: 20 }}>
+            Shelf Tag Photo{' '}
+            <span style={{ fontWeight: 400, opacity: 0.55 }}>(optional)</span>
+          </label>
+          <input
+            ref={photoInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            style={{ display: 'none' }}
+            onChange={handlePhotoCapture}
+          />
+          {!photoDataUrl ? (
+            <button
+              type="button"
+              className="add-store-btn"
+              onClick={() => photoInputRef.current?.click()}
+            >
+              📷 Take Photo of Shelf Tag
+            </button>
+          ) : (
+            <div className="photo-preview-wrap">
+              <img src={photoDataUrl} alt="Shelf tag" className="photo-preview" />
+              <button
+                type="button"
+                className="add-store-cancel"
+                onClick={() => setPhotoDataUrl(null)}
+              >
+                Remove
+              </button>
+            </div>
           )}
 
           <button
@@ -288,6 +467,7 @@ export default function ScanView({ onBack }) {
         </div>
       )}
 
+      {/* ── SAVED ── */}
       {phase === 'saved' && (
         <div className="scan-form scan-saved-screen">
           <div className="scan-saved-check">✓</div>
@@ -297,6 +477,9 @@ export default function ScanView({ onBack }) {
             <span className="scan-saved-meta">
               ${parseFloat(price).toFixed(2)} at {savedStore?.name}
             </span>
+            {photoDataUrl && (
+              <span className="scan-saved-meta">📷 Photo attached</span>
+            )}
           </div>
           <button className="cta-btn" style={{ marginTop: 32 }} onClick={resetForNextScan}>
             Scan Another
@@ -307,6 +490,7 @@ export default function ScanView({ onBack }) {
         </div>
       )}
 
+      {/* ── ERROR ── */}
       {phase === 'error' && (
         <div className="scan-form">
           <button className="back-btn" onClick={onBack}>← Back</button>

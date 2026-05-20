@@ -142,3 +142,17 @@ h1 { font-size: 20px; font-weight: 800; }
 .scan-error-title { font-size: 18px; font-weight: 800; color: var(--red); margin-bottom: 8px; }
 .scan-error-msg { font-size: 13px; color: var(--text-muted); margin-bottom: 12px; }
 .scan-error-tip { font-size: 13px; color: #555; }
+/* ── Phase 2.1 ── */
+.scan-gps-badge { background: rgba(0,0,0,.55); color: white; font-size: 13px; font-weight: 700; padding: 6px 14px; border-radius: 20px; pointer-events: none; }
+.gps-detected-label { font-size: 12px; color: var(--green); font-weight: 600; margin-bottom: 2px; margin-top: -4px; }
+.existing-prices-loading { font-size: 13px; color: var(--text-muted); font-style: italic; padding: 10px 0 4px; }
+.existing-prices-card { background: white; border: 1.5px solid var(--border); border-radius: 12px; padding: 14px 16px; margin: 6px 0 4px; }
+.existing-prices-title { font-size: 13px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 10px; }
+.existing-price-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; border-bottom: 1px solid var(--border); }
+.existing-price-row:last-of-type { border-bottom: none; }
+.existing-price-amount { font-size: 17px; font-weight: 800; color: var(--green); min-width: 52px; }
+.existing-price-store { font-size: 14px; font-weight: 600; flex: 1; }
+.existing-price-age { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+.existing-prices-cta { font-size: 12px; color: var(--text-muted); font-style: italic; margin-top: 10px; }
+.photo-preview-wrap { display: flex; align-items: center; gap: 12px; margin-top: 4px; }
+.photo-preview { width: 80px; height: 80px; object-fit: cover; border-radius: 10px; border: 1.5px solid var(--border); }
