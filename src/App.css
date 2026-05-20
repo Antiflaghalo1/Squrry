@@ -110,6 +110,18 @@ h1 { font-size: 20px; font-weight: 800; }
 .scan-saved-meta { font-size: 14px; color: var(--muted); }
 .scan-done-btn { display: block; text-align: center; margin-top: 14px; }
 
+/* Add-a-store */
+.add-store-btn { background: none; border: 1.5px dashed var(--green); color: var(--green); border-radius: 10px; padding: 9px 14px; font-size: 14px; font-weight: 700; cursor: pointer; width: 100%; text-align: left; margin-top: 6px; }
+.add-store-btn:active { background: var(--green-pale); }
+.add-store-flash { font-size: 13px; font-weight: 700; color: var(--green); padding: 4px 2px; }
+.add-store-form { display: flex; flex-direction: column; gap: 8px; background: var(--green-pale); border: 1.5px solid var(--green); border-radius: 12px; padding: 14px; margin-top: 6px; }
+.add-store-error { font-size: 13px; color: var(--red); padding: 0 2px; }
+.add-store-row { display: flex; gap: 8px; margin-top: 2px; }
+.add-store-submit { flex: 1; background: var(--green); color: white; border: none; border-radius: 10px; padding: 12px; font-size: 15px; font-weight: 700; cursor: pointer; }
+.add-store-submit:active { opacity: .85; }
+.add-store-cancel { background: white; color: var(--muted); border: 1.5px solid var(--border); border-radius: 10px; padding: 12px 16px; font-size: 15px; font-weight: 600; cursor: pointer; }
+.add-store-cancel:active { background: #f0f0f0; }
+
 /* Error screen */
 .scan-error-box { margin-top: 40px; background: white; border-radius: 14px; padding: 24px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,.07); }
 .scan-error-title { font-size: 18px; font-weight: 800; color: var(--red); margin-bottom: 8px; }

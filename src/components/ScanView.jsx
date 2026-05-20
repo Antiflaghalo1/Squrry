@@ -3,15 +3,8 @@ import { BrowserMultiFormatReader } from '@zxing/browser'
 import { DecodeHintType, BarcodeFormat } from '@zxing/library'
 import { STORES } from '../data/stores'
 import { PRODUCTS } from '../data/products'
-
-const OBS_KEY = 'basketsplit_observations'
-
-function saveObs(obs) {
-  try {
-    const prev = JSON.parse(localStorage.getItem(OBS_KEY) || '[]')
-    localStorage.setItem(OBS_KEY, JSON.stringify([obs, ...prev]))
-  } catch {}
-}
+import { addObservation } from '../data/observations'
+import { getCustomStores, addCustomStore } from '../data/customStores'
 
 export default function ScanView({ onBack }) {
   const videoRef = useRef(null)
@@ -24,6 +17,13 @@ export default function ScanView({ onBack }) {
   const [price, setPrice] = useState('')
   const [storeId, setStoreId] = useState(STORES[0].id)
   const [errorMsg, setErrorMsg] = useState('')
+  const [customStores, setCustomStores] = useState(() => getCustomStores())
+  const [showAddStore, setShowAddStore] = useState(false)
+  const [newName, setNewName] = useState('')
+  const [newCity, setNewCity] = useState('')
+  const [newAddress, setNewAddress] = useState('')
+  const [addError, setAddError] = useState('')
+  const [savedFlash, setSavedFlash] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -85,9 +85,45 @@ export default function ScanView({ onBack }) {
     setLookingUp(false)
   }
 
+  function slugify(str) {
+    return str.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')
+  }
+
+  function handleAddStore(e) {
+    e.preventDefault()
+    if (!newName.trim() || !newCity.trim()) {
+      setAddError('Store name and city are required.')
+      return
+    }
+    const allIds = new Set([...STORES, ...customStores].map(s => s.id))
+    let base = slugify(newName.trim()) || 'store_' + Date.now()
+    let id = base
+    let n = 2
+    while (allIds.has(id)) id = `${base}_${n++}`
+    const store = {
+      id,
+      name: newName.trim(),
+      location: newCity.trim(),
+      ...(newAddress.trim() && { address: newAddress.trim() }),
+      color: '#888888',
+      addedAt: new Date().toISOString(),
+      source: 'user_added',
+    }
+    addCustomStore(store)
+    const updated = [...customStores, store]
+    setCustomStores(updated)
+    setStoreId(id)
+    setNewName('')
+    setNewCity('')
+    setNewAddress('')
+    setAddError('')
+    setShowAddStore(false)
+    setSavedFlash(true)
+  }
+
   function handleSave() {
     if (!price || !productName.trim()) return
-    saveObs({
+    addObservation({
       barcode,
       productName: productName.trim(),
       storeId,
@@ -103,11 +139,14 @@ export default function ScanView({ onBack }) {
     setPrice('')
     setLookingUp(false)
     setStoreId(STORES[0].id)
+    setShowAddStore(false)
+    setSavedFlash(false)
     setPhase('scanning')
     setScanKey(k => k + 1)
   }
 
-  const savedStore = STORES.find(s => s.id === storeId)
+  const allStores = [...STORES, ...customStores]
+  const savedStore = allStores.find(s => s.id === storeId)
 
   return (
     <div className="scan-view">
@@ -143,12 +182,65 @@ export default function ScanView({ onBack }) {
           <select
             className="scan-select"
             value={storeId}
-            onChange={e => setStoreId(e.target.value)}
+            onChange={e => { setStoreId(e.target.value); setSavedFlash(false) }}
           >
             {STORES.map(s => (
               <option key={s.id} value={s.id}>{s.name} – {s.location}</option>
             ))}
+            {customStores.length > 0 && (
+              <optgroup label="— My Stores —">
+                {customStores.map(s => (
+                  <option key={s.id} value={s.id}>{s.name} – {s.location}</option>
+                ))}
+              </optgroup>
+            )}
           </select>
+
+          {savedFlash && (
+            <p className="add-store-flash">✓ Store saved!</p>
+          )}
+
+          {!showAddStore ? (
+            <button
+              type="button"
+              className="add-store-btn"
+              onClick={() => { setShowAddStore(true); setSavedFlash(false) }}
+            >
+              + Add a Store
+            </button>
+          ) : (
+            <form className="add-store-form" onSubmit={handleAddStore}>
+              <input
+                className="scan-input"
+                placeholder="Store Name *"
+                value={newName}
+                onChange={e => setNewName(e.target.value)}
+              />
+              <input
+                className="scan-input"
+                placeholder="City *"
+                value={newCity}
+                onChange={e => setNewCity(e.target.value)}
+              />
+              <input
+                className="scan-input"
+                placeholder="Address (optional)"
+                value={newAddress}
+                onChange={e => setNewAddress(e.target.value)}
+              />
+              {addError && <p className="add-store-error">{addError}</p>}
+              <div className="add-store-row">
+                <button type="submit" className="add-store-submit">Save Store</button>
+                <button
+                  type="button"
+                  className="add-store-cancel"
+                  onClick={() => { setShowAddStore(false); setAddError('') }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          )}
 
           <label className="scan-label">Price Seen Today</label>
           <div className="scan-price-wrap">
