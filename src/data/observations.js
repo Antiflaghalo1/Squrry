@@ -1,6 +1,5 @@
 const OBS_KEY = 'basketsplit_observations'
-const WEBHOOK_URL =
-  'https://script.google.com/macros/s/AKfycbwTmseGRgylNkJTN7j35U91GHO3NNRKIkA5lFbn3XO0vtL-4WLE9CJDQYF4MRTwYFNA-Q/exec'
+const WEBHOOK_URL = import.meta.env.VITE_WEBHOOK_URL
 
 export function addObservation(obs) {
   try {
