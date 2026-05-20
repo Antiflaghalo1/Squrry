@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { ITEMS } from './data/stores'
 import { optimizeBasket } from './utils/optimizer'
 import ScanView from './components/ScanView'
@@ -12,6 +12,29 @@ export default function App() {
   const [results, setResults] = useState(null)
   const [view, setView] = useState('list')
   const [showNoBudgetBanner, setShowNoBudgetBanner] = useState(false)
+  const viewStack = useRef([])
+
+  const navTo = (newView) => {
+    viewStack.current.push(view)
+    window.history.pushState({}, '')
+    setView(newView)
+  }
+
+  const goBack = () => {
+    window.history.back()
+  }
+
+  const handlePopState = () => {
+    const prev = viewStack.current.pop()
+    if (prev !== undefined) {
+      setView(prev)
+    }
+  }
+
+  useEffect(() => {
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [])
 
   const toggleItem = (itemId) => {
     setSelectedItems(prev => {
@@ -24,7 +47,7 @@ export default function App() {
   const optimize = () => {
     if (selectedItems.size === 0) return
     setResults(optimizeBasket([...selectedItems]))
-    setView('results')
+    navTo('results')
     setShowNoBudgetBanner(!budget)
   }
 
@@ -41,14 +64,14 @@ export default function App() {
             <p className="tagline">IE's smartest grocery optimizer</p>
           </div>
           {view !== 'scan' && (
-            <button className="scan-header-btn" onClick={() => setView('scan')}>
+            <button className="scan-header-btn" onClick={() => navTo('scan')}>
               📷 Scan
             </button>
           )}
         </div>
       </header>
 
-      {view === 'scan' && <ScanView onBack={() => setView('list')} />}
+      {view === 'scan' && <ScanView onBack={goBack} />}
 
       {view === 'list' && (
         <>
@@ -105,7 +128,7 @@ export default function App() {
             </div>
           )}
           <div className="results-top">
-            <button className="back-btn" onClick={() => setView('list')}>← Edit List</button>
+            <button className="back-btn" onClick={goBack}>← Edit List</button>
             <div className={`total-card ${overBudget ? 'over' : ''}`}>
               <div className="total-label">Total Across All Stores</div>
               <div className="total-amount">${results.grandTotal.toFixed(2)}</div>
