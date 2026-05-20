@@ -70,3 +70,48 @@ h1 { font-size: 20px; font-weight: 800; }
 .result-price { font-weight: 700; color: var(--green); }
 
 .disclaimer { margin: 8px 18px 40px; font-size: 12px; color: var(--muted); text-align: center; }
+
+/* Header scan button */
+.header-text { flex: 1; }
+.scan-header-btn { margin-left: auto; background: rgba(255,255,255,.18); color: white; border: 1.5px solid rgba(255,255,255,.5); border-radius: 20px; padding: 6px 14px; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.scan-header-btn:active { background: rgba(255,255,255,.3); }
+
+/* Scan view root */
+.scan-view { min-height: 100dvh; background: var(--bg); display: flex; flex-direction: column; }
+
+/* Camera */
+.scan-camera-wrap { position: relative; flex: 1; background: #000; display: flex; align-items: center; justify-content: center; overflow: hidden; min-height: 60dvh; }
+.scan-video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.scan-overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; pointer-events: none; }
+.scan-frame { width: 230px; height: 140px; border: 3px solid white; border-radius: 12px; box-shadow: 0 0 0 4000px rgba(0,0,0,.45); }
+.scan-hint { color: white; font-size: 14px; font-weight: 600; text-shadow: 0 1px 4px rgba(0,0,0,.7); }
+.scan-back-btn { position: absolute; top: 14px; left: 14px; background: rgba(0,0,0,.45); color: white; border: none; border-radius: 20px; padding: 8px 16px; font-size: 14px; font-weight: 700; cursor: pointer; pointer-events: all; }
+
+/* Scan form */
+.scan-form { padding: 18px 18px 40px; display: flex; flex-direction: column; gap: 6px; }
+.scan-code-label { font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+.scan-label { font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; margin-top: 14px; }
+.scan-input { width: 100%; border: 1.5px solid var(--border); border-radius: 10px; padding: 12px 14px; font-size: 16px; outline: none; background: white; }
+.scan-input:focus { border-color: var(--green); }
+.scan-select { width: 100%; border: 1.5px solid var(--border); border-radius: 10px; padding: 12px 14px; font-size: 15px; background: white; outline: none; appearance: none; }
+.scan-select:focus { border-color: var(--green); }
+.scan-price-wrap { display: flex; align-items: center; background: white; border: 1.5px solid var(--border); border-radius: 10px; padding: 0 14px; }
+.scan-price-wrap:focus-within { border-color: var(--green); }
+.scan-dollar { font-size: 20px; font-weight: 700; color: var(--green); margin-right: 4px; }
+.scan-price-input { border: none; font-size: 22px; font-weight: 700; color: var(--green); flex: 1; padding: 10px 0; outline: none; }
+.scan-looking { color: var(--muted); font-size: 14px; font-style: italic; padding: 12px 0; }
+
+/* Saved screen */
+.scan-saved-screen { align-items: center; justify-content: center; text-align: center; padding-top: 60px; }
+.scan-saved-check { width: 72px; height: 72px; border-radius: 50%; background: var(--green); color: white; font-size: 36px; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; }
+.scan-saved-title { font-size: 26px; font-weight: 900; color: var(--green); margin-bottom: 12px; }
+.scan-saved-detail { display: flex; flex-direction: column; gap: 4px; }
+.scan-saved-name { font-size: 16px; font-weight: 600; }
+.scan-saved-meta { font-size: 14px; color: var(--muted); }
+.scan-done-btn { display: block; text-align: center; margin-top: 14px; }
+
+/* Error screen */
+.scan-error-box { margin-top: 40px; background: white; border-radius: 14px; padding: 24px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,.07); }
+.scan-error-title { font-size: 18px; font-weight: 800; color: var(--red); margin-bottom: 8px; }
+.scan-error-msg { font-size: 13px; color: var(--muted); margin-bottom: 12px; }
+.scan-error-tip { font-size: 13px; color: #555; }

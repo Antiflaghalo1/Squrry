@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ITEMS } from './data/stores'
 import { optimizeBasket } from './utils/optimizer'
+import ScanView from './components/ScanView'
 import './App.css'
 
 const CATEGORIES = [...new Set(ITEMS.map(i => i.category))]
@@ -33,12 +34,19 @@ export default function App() {
       <header className="header">
         <div className="header-inner">
           <span className="logo">🛒</span>
-          <div>
+          <div className="header-text">
             <h1>BasketSplit</h1>
             <p className="tagline">IE's smartest grocery optimizer</p>
           </div>
+          {view !== 'scan' && (
+            <button className="scan-header-btn" onClick={() => setView('scan')}>
+              📷 Scan
+            </button>
+          )}
         </div>
       </header>
+
+      {view === 'scan' && <ScanView onBack={() => setView('list')} />}
 
       {view === 'list' && (
         <>
