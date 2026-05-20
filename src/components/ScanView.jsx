@@ -204,11 +204,14 @@ export default function ScanView({ onBack }) {
         audio: false,
       })
       shelfStreamRef.current = stream
-      if (shelfVideoRef.current) {
-        shelfVideoRef.current.srcObject = stream
-        await shelfVideoRef.current.play()
-      }
       setPhotoCapturing(true)
+      // wait for video element to mount before attaching stream
+      setTimeout(() => {
+        if (shelfVideoRef.current) {
+          shelfVideoRef.current.srcObject = stream
+          shelfVideoRef.current.play()
+        }
+      }, 300)
     } catch {
       // silently fail — photo is optional
     }
