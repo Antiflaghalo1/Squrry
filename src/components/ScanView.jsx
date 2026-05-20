@@ -194,13 +194,13 @@ export default function ScanView({ onBack }) {
     const img = new Image()
     const url = URL.createObjectURL(file)
     img.onload = () => {
-      const MAX = 800
+      const MAX = 400
       const scale = Math.min(1, MAX / Math.max(img.width, img.height))
       const canvas = document.createElement('canvas')
-      canvas.width = img.width * scale
-      canvas.height = img.height * scale
+      canvas.width = Math.floor(img.width * scale)
+      canvas.height = Math.floor(img.height * scale)
       canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height)
-      setPhotoDataUrl(canvas.toDataURL('image/jpeg', 0.7))
+      setPhotoDataUrl(canvas.toDataURL('image/jpeg', 0.5))
       URL.revokeObjectURL(url)
     }
     img.src = url
