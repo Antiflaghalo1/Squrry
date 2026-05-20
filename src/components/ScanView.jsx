@@ -15,6 +15,7 @@ export default function ScanView({ onBack }) {
   const [productName, setProductName] = useState('')
   const [lookingUp, setLookingUp] = useState(false)
   const [price, setPrice] = useState('')
+  const [priceError, setPriceError] = useState('')
   const [storeId, setStoreId] = useState(
     localStorage.getItem('basketsplit_last_store') || STORES[0].id
   )
@@ -125,13 +126,23 @@ export default function ScanView({ onBack }) {
   }
 
   function handleSave() {
+    const parsedPrice = parseFloat(price)
+    setPriceError('')
     if (!price || !productName.trim()) return
+    if (isNaN(parsedPrice) || parsedPrice <= 0) {
+      setPriceError('Please enter a valid price.')
+      return
+    }
+    if (parsedPrice > 999.99) {
+      setPriceError('Price seems too high. Max $999.99.')
+      return
+    }
     localStorage.setItem('basketsplit_last_store', storeId)
     addObservation({
       barcode,
       productName: productName.trim(),
       storeId,
-      price: parseFloat(parseFloat(price).toFixed(2)),
+      price: parseFloat(parsedPrice.toFixed(2)),
       timestamp: Date.now(),
     })
     setPhase('saved')
@@ -141,6 +152,7 @@ export default function ScanView({ onBack }) {
     setBarcode('')
     setProductName('')
     setPrice('')
+    setPriceError('')
     setLookingUp(false)
     setStoreId(localStorage.getItem('basketsplit_last_store') || STORES[0].id)
     setShowAddStore(false)
@@ -257,15 +269,19 @@ export default function ScanView({ onBack }) {
               min="0"
               placeholder="0.00"
               value={price}
-              onChange={e => setPrice(e.target.value)}
+              onChange={e => { setPrice(e.target.value); setPriceError('') }}
             />
           </div>
+
+          {priceError && (
+            <p style={{ color: '#C62828', fontSize: 13, marginTop: 8 }}>{priceError}</p>
+          )}
 
           <button
             className="cta-btn"
             style={{ marginTop: 28 }}
             onClick={handleSave}
-            disabled={!price || !productName.trim() || lookingUp}
+            disabled={!price || !productName.trim() || lookingUp || parseFloat(price) <= 0 || parseFloat(price) > 999.99}
           >
             Save Price →
           </button>
