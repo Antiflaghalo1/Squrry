@@ -10,6 +10,7 @@ export function addObservation(obs) {
 
   fetch(WEBHOOK_URL, {
     method: 'POST',
+    mode: 'no-cors',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ...obs, device: navigator.userAgent }),
   }).catch(() => {})
