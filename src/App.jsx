@@ -9,6 +9,7 @@ import LegalView from './components/LegalView'
 import ProfileMenu from './components/ProfileMenu'
 import ProfileView from './components/ProfileView'
 import HamburgerDrawer from './components/HamburgerDrawer'
+import BudgetView from './components/BudgetView'
 import { supabase } from './lib/supabase'
 import './App.css'
 
@@ -33,6 +34,10 @@ export default function App() {
       userRef.current = session?.user ?? null
       setUser(session?.user ?? null)
       setAuthLoading(false)
+      if (session?.user) {
+        supabase.from('profiles').select('budget').eq('id', session.user.id).single()
+          .then(({ data }) => { if (data?.budget != null) setBudget(data.budget) })
+      }
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       userRef.current = session?.user ?? null
@@ -85,6 +90,11 @@ export default function App() {
     setResults(optimizeBasket([...selectedItems]))
     navTo('results')
     setShowNoBudgetBanner(!budget)
+  }
+
+  async function handleBudgetSave(newValue) {
+    setBudget(newValue)
+    await supabase.from('profiles').update({ budget: newValue }).eq('id', user.id)
   }
 
   async function handleSignOut() {
@@ -248,6 +258,9 @@ export default function App() {
       {view === 'profile' && (
         <ProfileView user={user} onSignOut={handleSignOut} />
       )}
+      {view === 'budget' && (
+        <BudgetView user={user} budget={budget} onBack={goBack} onBudgetSave={handleBudgetSave} />
+      )}
 
       {showProfileMenu && user && (
         <ProfileMenu
@@ -261,7 +274,7 @@ export default function App() {
         isOpen={showDrawer}
         onClose={() => setShowDrawer(false)}
         budget={budget}
-        onBudgetChange={e => setBudget(e.target.value)}
+        onBudgetNav={() => { setShowDrawer(false); navTo('budget') }}
         onLegal={(type) => { setShowDrawer(false); navTo(type) }}
         onSignOut={() => { setShowDrawer(false); handleSignOut() }}
       />

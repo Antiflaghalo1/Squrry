@@ -1,4 +1,4 @@
-export default function HamburgerDrawer({ isOpen, onClose, budget, onBudgetChange, onLegal, onSignOut }) {
+export default function HamburgerDrawer({ isOpen, onClose, budget, onBudgetNav, onLegal, onSignOut }) {
   return (
     <div className={`drawer-backdrop${isOpen ? ' drawer-backdrop--open' : ''}`} onClick={onClose}>
       <div
@@ -11,18 +11,14 @@ export default function HamburgerDrawer({ isOpen, onClose, budget, onBudgetChang
 
         <div className="drawer-divider" />
 
-        <div className="drawer-section">
+        <button
+          className="drawer-menu-row"
+          style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+          onClick={onBudgetNav}
+        >
           <span className="drawer-section-label">💰 My Budget</span>
-          <div className="budget-wrap">
-            <span>$</span>
-            <input
-              type="number"
-              placeholder="0.00"
-              value={budget}
-              onChange={e => onBudgetChange(e.target.value)}
-            />
-          </div>
-        </div>
+          <span className="budget-wrap">${budget ?? 0} →</span>
+        </button>
 
         <div className="drawer-divider" />
 

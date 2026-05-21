@@ -261,3 +261,14 @@ h1 { font-size: 20px; font-weight: 800; }
 .saved-signout-section { padding: 0 20px; }
 .saved-signout-btn { width: 100%; background: none; border: 1.5px solid var(--border); border-radius: 12px; padding: 14px; font-size: 16px; font-weight: 700; color: var(--text-muted); cursor: pointer; }
 .saved-signout-btn:active { background: var(--border); }
+
+/* ── Budget full-page view ── */
+.budget-view { padding: 28px 24px 40px; }
+.budget-view-title { font-size: 28px; font-weight: 900; color: var(--green); margin-bottom: 8px; }
+.budget-view-sub { font-size: 14px; color: var(--text-muted); line-height: 1.5; margin-bottom: 32px; }
+.budget-view-amount { font-size: 48px; font-weight: 800; color: var(--green); text-align: center; margin-bottom: 16px; letter-spacing: -1px; }
+.budget-slider { width: 100%; accent-color: var(--green); height: 6px; cursor: pointer; }
+.budget-view-range-labels { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-muted); margin-top: 6px; margin-bottom: 32px; }
+.budget-view-cta { margin-top: 0; }
+@keyframes budget-fade-out { 0% { opacity: 1; } 70% { opacity: 1; } 100% { opacity: 0; } }
+.budget-view-saved { text-align: center; color: var(--green); font-size: 15px; font-weight: 700; margin-top: 14px; animation: budget-fade-out 2s ease forwards; }
