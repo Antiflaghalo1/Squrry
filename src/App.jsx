@@ -54,6 +54,16 @@ export default function App() {
     return () => window.removeEventListener('popstate', handlePopState)
   }, [])
 
+  useEffect(() => {
+    if (!user) return
+    const handler = (e) => {
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [user])
+
   const toggleItem = (itemId) => {
     setSelectedItems(prev => {
       const next = new Set(prev)
@@ -70,6 +80,7 @@ export default function App() {
   }
 
   async function handleSignOut() {
+    if (!window.confirm("Sign out of BasketSplit? You'll need to log back in to submit prices.")) return
     await supabase.auth.signOut()
   }
 
