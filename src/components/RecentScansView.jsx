@@ -47,13 +47,42 @@ export default function RecentScansView({ onBack, userId }) {
     setLoading(true)
     setError('')
     try {
-      const { data: products, error: prodErr } = await supabase
-        .from('products')
-        .select('*')
-        .order('last_scanned_at', { ascending: false })
-        .limit(20)
+      let products
 
-      if (prodErr) throw prodErr
+      if (userId) {
+        const { data: userObs, error: obsUserErr } = await supabase
+          .from('observations')
+          .select('barcode')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false })
+          .limit(20)
+
+        if (obsUserErr) throw obsUserErr
+        if (!userObs || userObs.length === 0) {
+          setItems([])
+          setLoading(false)
+          return
+        }
+
+        const uniqueBarcodes = [...new Set(userObs.map(o => o.barcode))]
+        const { data: prodData, error: prodErr } = await supabase
+          .from('products')
+          .select('*')
+          .in('upc', uniqueBarcodes)
+
+        if (prodErr) throw prodErr
+        products = prodData
+      } else {
+        const { data: prodData, error: prodErr } = await supabase
+          .from('products')
+          .select('*')
+          .order('last_scanned_at', { ascending: false })
+          .limit(20)
+
+        if (prodErr) throw prodErr
+        products = prodData
+      }
+
       if (!products || products.length === 0) {
         setItems([])
         setLoading(false)
