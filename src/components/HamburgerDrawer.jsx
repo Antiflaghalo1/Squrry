@@ -1,4 +1,4 @@
-export default function HamburgerDrawer({ isOpen, onClose, budget, onBudgetNav, onLegal, onSignOut }) {
+export default function HamburgerDrawer({ isOpen, onClose, budget, onBudgetNav, onLegal, onMyScans, onSignOut }) {
   return (
     <div className={`drawer-backdrop${isOpen ? ' drawer-backdrop--open' : ''}`} onClick={onClose}>
       <div
@@ -22,6 +22,7 @@ export default function HamburgerDrawer({ isOpen, onClose, budget, onBudgetNav, 
 
         <div className="drawer-divider" />
 
+        <button className="drawer-menu-row" onClick={onMyScans}>📦 My Scans</button>
         <button className="drawer-menu-row" onClick={() => onLegal('tos')}>📋 Terms of Service</button>
         <button className="drawer-menu-row" onClick={() => onLegal('privacy')}>🔒 Privacy Policy</button>
 

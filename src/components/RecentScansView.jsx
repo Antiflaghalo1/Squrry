@@ -15,14 +15,14 @@ function timeAgo(ts) {
   return `${days}d ago`
 }
 
-export default function RecentScansView({ onBack }) {
+export default function RecentScansView({ onBack, userId }) {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   useEffect(() => {
     loadRecent()
-  }, [])
+  }, [userId])
 
   async function loadRecent() {
     setLoading(true)
@@ -44,11 +44,13 @@ export default function RecentScansView({ onBack }) {
 
       // For each product, get its latest observation (price + store)
       const upcs = products.map(p => String(p.upc))
-      const { data: obs, error: obsErr } = await supabase
+      let obsQuery = supabase
         .from('observations')
         .select('barcode, price, store_id, created_at')
         .in('barcode', upcs)
         .order('created_at', { ascending: false })
+      if (userId) obsQuery = obsQuery.eq('user_id', userId)
+      const { data: obs, error: obsErr } = await obsQuery
 
       if (obsErr) throw obsErr
 

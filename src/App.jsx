@@ -10,6 +10,7 @@ import ProfileMenu from './components/ProfileMenu'
 import ProfileView from './components/ProfileView'
 import HamburgerDrawer from './components/HamburgerDrawer'
 import BudgetView from './components/BudgetView'
+import CategoriesView from './components/CategoriesView'
 import { supabase } from './lib/supabase'
 import './App.css'
 
@@ -160,7 +161,7 @@ export default function App() {
       </header>
 
       {view === 'scan' && <ScanView onBack={goBack} user={user} />}
-      {view === 'recent' && <RecentScansView onBack={goBack} />}
+      {view === 'recent' && <RecentScansView onBack={goBack} userId={user?.id} />}
       {view === 'auth' && <AuthView onBack={goBack} onLegal={(type) => navTo(type)} />}
       {(view === 'tos' || view === 'privacy') && <LegalView type={view} onBack={goBack} />}
 
@@ -248,14 +249,12 @@ export default function App() {
         </>
       )}
 
-      {view === 'categories' && (
-        <div className="coming-soon-view">Coming soon 🐿️</div>
-      )}
+      {view === 'categories' && <CategoriesView onBack={goBack} />}
       {view === 'saved' && (
         <div className="coming-soon-view">Coming soon 🐿️</div>
       )}
       {view === 'profile' && (
-        <ProfileView user={user} onSignOut={handleSignOut} />
+        <ProfileView user={user} onSignOut={handleSignOut} onMyScans={() => navTo('recent')} />
       )}
       {view === 'budget' && (
         <BudgetView user={user} budget={budget} onBack={goBack} onBudgetSave={handleBudgetSave} />
@@ -275,6 +274,7 @@ export default function App() {
         budget={budget}
         onBudgetNav={() => { setShowDrawer(false); navTo('budget') }}
         onLegal={(type) => { setShowDrawer(false); navTo(type) }}
+        onMyScans={() => { setShowDrawer(false); navTo('recent') }}
         onSignOut={() => { setShowDrawer(false); handleSignOut() }}
       />
 
