@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { Menu, Search, ShoppingCart, Home, LayoutGrid, Camera, Heart, User } from 'lucide-react'
 import { ITEMS } from './data/stores'
 import { optimizeBasket } from './utils/optimizer'
 import ScanView from './components/ScanView'
@@ -6,6 +7,7 @@ import RecentScansView from './components/RecentScansView'
 import AuthView from './components/AuthView'
 import LegalView from './components/LegalView'
 import ProfileMenu from './components/ProfileMenu'
+import ProfileView from './components/ProfileView'
 import { supabase } from './lib/supabase'
 import './App.css'
 
@@ -122,32 +124,28 @@ export default function App() {
   return (
     <div className="app">
       <header className="header">
-        <div className="header-inner">
-          <span className="logo">🛒</span>
-          <div className="header-text">
-            <h1>BasketSplit</h1>
-            <p className="tagline">IE's smartest grocery optimizer</p>
+        <div className="topbar-inner">
+          <button className="topbar-menu-btn" onClick={() => console.log('menu')}>
+            <Menu size={22} />
+          </button>
+          <div className="topbar-wordmark">
+            BasketSplit <span className="topbar-wordmark-emoji">🛒</span>
           </div>
-          <div className="header-actions">
-            {view !== 'scan' && view !== 'recent' && (
-              <>
-                <button className="scan-header-btn" onClick={() => navTo('scan')}>
-                  📷 Scan
-                </button>
-                <button className="scan-header-btn" onClick={() => navTo('recent')}>
-                  📦 Recent
-                </button>
-              </>
-            )}
-            {user ? (
-              <button className="user-avatar-btn" title={user.email} onClick={() => setShowProfileMenu(true)}>
-                {userInitial}
+          <div className="topbar-actions">
+            <button className="topbar-search-btn" onClick={() => console.log('search')}>
+              <Search size={20} />
+            </button>
+            <div className="topbar-cart-wrap">
+              <button className="topbar-cart-btn" onClick={() => navTo('list')}>
+                <ShoppingCart size={20} />
               </button>
-            ) : (
-              <button className="sign-in-btn" onClick={() => navTo('auth')}>
-                Sign In
-              </button>
-            )}
+              {selectedItems.size > 0 && (
+                <span className="topbar-cart-badge">{selectedItems.size}</span>
+              )}
+            </div>
+            <button className="user-avatar-btn" title={user.email} onClick={() => setShowProfileMenu(true)}>
+              {userInitial}
+            </button>
           </div>
         </div>
       </header>
@@ -195,11 +193,13 @@ export default function App() {
             </div>
           ))}
 
-          <div className="footer-cta">
-            <button className="cta-btn" onClick={optimize} disabled={selectedItems.size === 0}>
-              Find Best Prices →
-            </button>
-          </div>
+          {selectedItems.size > 0 && (
+            <div className="footer-cta">
+              <button className="cta-btn" onClick={optimize} disabled={selectedItems.size === 0}>
+                Find Best Prices →
+              </button>
+            </div>
+          )}
         </>
       )}
 
@@ -253,12 +253,46 @@ export default function App() {
         </>
       )}
 
+      {view === 'categories' && (
+        <div className="coming-soon-view">Coming soon 🐿️</div>
+      )}
+      {view === 'saved' && (
+        <div className="coming-soon-view">Coming soon 🐿️</div>
+      )}
+      {view === 'profile' && (
+        <ProfileView user={user} onSignOut={handleSignOut} />
+      )}
+
       {showProfileMenu && user && (
         <ProfileMenu
           user={user}
           onSignOut={handleSignOut}
           onClose={() => setShowProfileMenu(false)}
         />
+      )}
+
+      {view !== 'scan' && view !== 'auth' && view !== 'tos' && view !== 'privacy' && (
+        <nav className="bottom-nav">
+          <button className={`bottom-nav-tab${view === 'list' ? ' active' : ''}`} onClick={() => navTo('list')}>
+            <Home size={22} />
+            <span className="bottom-nav-label">Home</span>
+          </button>
+          <button className={`bottom-nav-tab${view === 'categories' ? ' active' : ''}`} onClick={() => navTo('categories')}>
+            <LayoutGrid size={22} />
+            <span className="bottom-nav-label">Categories</span>
+          </button>
+          <button className="bottom-nav-scan" onClick={() => navTo('scan')}>
+            <Camera size={26} />
+          </button>
+          <button className={`bottom-nav-tab${view === 'saved' ? ' active' : ''}`} onClick={() => navTo('saved')}>
+            <Heart size={22} />
+            <span className="bottom-nav-label">Saved</span>
+          </button>
+          <button className={`bottom-nav-tab${view === 'profile' ? ' active' : ''}`} onClick={() => navTo('profile')}>
+            <User size={22} />
+            <span className="bottom-nav-label">Profile</span>
+          </button>
+        </nav>
       )}
     </div>
   )
