@@ -164,3 +164,15 @@ h1 { font-size: 20px; font-weight: 800; }
 .sign-in-btn { background: rgba(255,255,255,.18); color: white; border: 1.5px solid rgba(255,255,255,.5); border-radius: 20px; padding: 6px 14px; font-size: 13px; font-weight: 700; cursor: pointer; }
 .sign-in-btn:active { background: rgba(255,255,255,.3); }
 .user-avatar-btn { width: 32px; height: 32px; border-radius: 50%; background: white; color: var(--green); font-size: 14px; font-weight: 900; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+
+/* Profile bottom sheet */
+.profile-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 200; display: flex; flex-direction: column; justify-content: flex-end; }
+@keyframes sheet-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
+.profile-sheet { background: var(--bg); border-radius: 20px 20px 0 0; padding: 12px 20px 40px; animation: sheet-up .22s ease-out; max-width: 480px; width: 100%; margin: 0 auto; }
+.profile-sheet-handle { width: 40px; height: 4px; border-radius: 2px; background: var(--border); margin: 0 auto 20px; }
+.profile-email { font-size: 14px; color: var(--text-muted); font-weight: 600; text-align: center; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 16px; }
+.profile-stat { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 16px 0 24px; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+.profile-stat-num { font-size: 40px; font-weight: 900; color: var(--green); line-height: 1; }
+.profile-stat-label { font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; }
+.profile-signout-btn { width: 100%; background: none; border: 1.5px solid var(--border); border-radius: 12px; padding: 14px; font-size: 16px; font-weight: 700; color: var(--text-muted); cursor: pointer; }
+.profile-signout-btn:active { background: var(--border); }

@@ -3,6 +3,7 @@ import { ITEMS } from './data/stores'
 import { optimizeBasket } from './utils/optimizer'
 import ScanView from './components/ScanView'
 import AuthView from './components/AuthView'
+import ProfileMenu from './components/ProfileMenu'
 import { supabase } from './lib/supabase'
 import './App.css'
 
@@ -16,6 +17,7 @@ export default function App() {
   const [showNoBudgetBanner, setShowNoBudgetBanner] = useState(false)
   const [user, setUser] = useState(null)
   const [authLoading, setAuthLoading] = useState(true)
+  const [showProfileMenu, setShowProfileMenu] = useState(false)
   const viewStack = useRef([])
   const userRef = useRef(null)
 
@@ -128,7 +130,7 @@ export default function App() {
               </button>
             )}
             {user ? (
-              <button className="user-avatar-btn" title={user.email} onClick={handleSignOut}>
+              <button className="user-avatar-btn" title={user.email} onClick={() => setShowProfileMenu(true)}>
                 {userInitial}
               </button>
             ) : (
@@ -237,6 +239,14 @@ export default function App() {
 
           <p className="disclaimer">💡 Prices are community-estimated. Verify in store.</p>
         </>
+      )}
+
+      {showProfileMenu && user && (
+        <ProfileMenu
+          user={user}
+          onSignOut={handleSignOut}
+          onClose={() => setShowProfileMenu(false)}
+        />
       )}
     </div>
   )
