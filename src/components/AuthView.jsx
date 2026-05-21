@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 
-export default function AuthView({ onBack, gated = false }) {
+export default function AuthView({ onBack, gated = false, onLegal }) {
   const [mode, setMode] = useState('signin') // signin | signup
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -112,6 +112,24 @@ export default function AuthView({ onBack, gated = false }) {
       >
         {mode === 'signin' ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
       </button>
+
+      <div style={{ marginTop: 32, textAlign: 'center', fontSize: 12, color: 'var(--text-muted)' }}>
+        <button
+          type="button"
+          style={{ background: 'none', border: 'none', padding: 0, color: 'var(--text-muted)', fontSize: 12, cursor: 'pointer', textDecoration: 'underline' }}
+          onClick={() => onLegal?.('tos')}
+        >
+          Terms of Service
+        </button>
+        <span style={{ margin: '0 8px' }}>·</span>
+        <button
+          type="button"
+          style={{ background: 'none', border: 'none', padding: 0, color: 'var(--text-muted)', fontSize: 12, cursor: 'pointer', textDecoration: 'underline' }}
+          onClick={() => onLegal?.('privacy')}
+        >
+          Privacy Policy
+        </button>
+      </div>
     </div>
   )
 }

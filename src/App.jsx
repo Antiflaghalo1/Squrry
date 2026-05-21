@@ -4,6 +4,7 @@ import { optimizeBasket } from './utils/optimizer'
 import ScanView from './components/ScanView'
 import RecentScansView from './components/RecentScansView'
 import AuthView from './components/AuthView'
+import LegalView from './components/LegalView'
 import ProfileMenu from './components/ProfileMenu'
 import { supabase } from './lib/supabase'
 import './App.css'
@@ -111,7 +112,7 @@ export default function App() {
           </div>
         </div>
       </header>
-      <AuthView onBack={() => {}} gated />
+      <AuthView onBack={() => {}} gated onLegal={(type) => navTo(type)} />
     </div>
   )
 
@@ -150,7 +151,8 @@ export default function App() {
 
       {view === 'scan' && <ScanView onBack={goBack} user={user} />}
       {view === 'recent' && <RecentScansView onBack={goBack} />}
-      {view === 'auth' && <AuthView onBack={goBack} />}
+      {view === 'auth' && <AuthView onBack={goBack} onLegal={(type) => navTo(type)} />}
+      {(view === 'tos' || view === 'privacy') && <LegalView type={view} onBack={goBack} />}
 
       {view === 'list' && (
         <>
