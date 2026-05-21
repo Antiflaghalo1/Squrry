@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import normalizeCategory from '../utils/normalizeCategory'
 
 const OBS_KEY = 'basketsplit_observations'
 const WEBHOOK_URL = import.meta.env.VITE_WEBHOOK_URL
@@ -41,6 +42,8 @@ export async function upsertProduct(product) {
     name: product.name,
     brand: product.brand || null,
     category: product.category || null,
+    raw_category: product.category || null,
+    normalized_category: normalizeCategory(product.category || ''),
     quantity: product.quantity || null,
     image_url: product.image_url || null,
     last_scanned_at: new Date().toISOString(),

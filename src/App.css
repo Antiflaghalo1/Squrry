@@ -343,3 +343,17 @@ h1 { font-size: 20px; font-weight: 800; }
 .cat-card-bg { position: absolute; inset: 0; background-size: cover; background-position: center; opacity: .18; }
 .cat-card-name { font-size: 14px; font-weight: 800; color: var(--text); position: relative; z-index: 1; line-height: 1.3; margin-bottom: 4px; }
 .cat-card-count { font-size: 12px; color: var(--text-muted); font-weight: 600; position: relative; z-index: 1; }
+
+/* ── Price intelligence ── */
+.price-intel-row { margin-top: 6px; display: flex; flex-direction: column; gap: 4px; }
+.price-intel-main { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.price-intel-store-count { font-size: 13px; font-weight: 700; color: var(--green); }
+.price-intel-main > span:not(.price-intel-store-count):not(.freshness-badge) { font-size: 13px; font-weight: 600; color: var(--text); }
+.top3-toggle { background: none; border: none; font-size: 11px; font-weight: 700; color: var(--green); cursor: pointer; padding: 0; text-align: left; }
+.top3-list { display: flex; flex-direction: column; gap: 3px; padding: 4px 0 0; }
+.top3-row { font-size: 12px; color: var(--text-muted); padding: 2px 0; border-bottom: 1px solid var(--border); }
+.top3-row:last-child { border-bottom: none; }
+.freshness-badge { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 20px; white-space: nowrap; }
+.freshness-fresh { background: #D6EED9; color: #2E6B35; }
+.freshness-aging { background: #FFF3CD; color: #856404; }
+.freshness-stale { background: #F8D7DA; color: #842029; }

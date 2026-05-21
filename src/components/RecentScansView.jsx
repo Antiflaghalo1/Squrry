@@ -15,10 +15,29 @@ function timeAgo(ts) {
   return `${days}d ago`
 }
 
+function freshnessBadge(ts) {
+  const days = (Date.now() - new Date(ts).getTime()) / 86400000
+  if (days <= 7) return { label: '🟢 Fresh', cls: 'freshness-fresh' }
+  if (days <= 30) return { label: '🟡 Aging', cls: 'freshness-aging' }
+  return { label: '🔴 Stale', cls: 'freshness-stale' }
+}
+
 export default function RecentScansView({ onBack, userId }) {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [expandedPrices, setExpandedPrices] = useState(new Set())
+
+  const allStores = [...STORES, ...getCustomStores()]
+
+  function togglePrices(upc) {
+    setExpandedPrices(prev => {
+      const next = new Set(prev)
+      if (next.has(upc)) next.delete(upc)
+      else next.add(upc)
+      return next
+    })
+  }
 
   useEffect(() => {
     loadRecent()
@@ -28,7 +47,6 @@ export default function RecentScansView({ onBack, userId }) {
     setLoading(true)
     setError('')
     try {
-      // Get most recently scanned products
       const { data: products, error: prodErr } = await supabase
         .from('products')
         .select('*')
@@ -42,7 +60,6 @@ export default function RecentScansView({ onBack, userId }) {
         return
       }
 
-      // For each product, get its latest observation (price + store)
       const upcs = products.map(p => String(p.upc))
       let obsQuery = supabase
         .from('observations')
@@ -54,23 +71,21 @@ export default function RecentScansView({ onBack, userId }) {
 
       if (obsErr) throw obsErr
 
-      // Pick latest observation per UPC
-      const latestByUpc = {}
+      const obsByUpc = {}
       for (const o of obs || []) {
-        if (!latestByUpc[o.barcode]) latestByUpc[o.barcode] = o
+        if (!obsByUpc[o.barcode]) obsByUpc[o.barcode] = []
+        obsByUpc[o.barcode].push(o)
       }
 
-      const allStores = [...STORES, ...getCustomStores()]
-
       const enriched = products.map(p => {
-        const latest = latestByUpc[String(p.upc)]
-        const store = latest ? allStores.find(s => s.id === latest.store_id) : null
-        return {
-          ...p,
-          latestPrice: latest?.price,
-          latestStore: store?.name || latest?.store_id,
-          latestAt: latest?.created_at,
-        }
+        const upcObs = obsByUpc[String(p.upc)] || []
+        const validObs = upcObs.filter(o => o.price > 0 && o.price <= 500)
+        const avgPrice = validObs.length > 0
+          ? validObs.reduce((sum, o) => sum + o.price, 0) / validObs.length
+          : null
+        const top3 = [...validObs].sort((a, b) => a.price - b.price).slice(0, 3)
+        const storeCount = new Set(validObs.map(o => o.store_id)).size
+        return { ...p, avgPrice, top3, storeCount }
       })
 
       setItems(enriched)
@@ -111,27 +126,55 @@ export default function RecentScansView({ onBack, userId }) {
 
       {!loading && !error && items.length > 0 && (
         <div className="recent-list">
-          {items.map(item => (
-            <div key={item.upc} className="recent-card">
-              {item.image_url ? (
-                <img src={item.image_url} alt={item.name} className="recent-thumb" />
-              ) : (
-                <div className="recent-thumb recent-thumb-placeholder">🛒</div>
-              )}
-              <div className="recent-info">
-                <div className="recent-name">{item.name}</div>
-                {item.brand && <div className="recent-brand">{item.brand}</div>}
-                {item.category && <div className="recent-cat">{item.category}</div>}
-                {item.latestPrice != null && (
-                  <div className="recent-price-row">
-                    <span className="recent-price">${Number(item.latestPrice).toFixed(2)}</span>
-                    <span className="recent-store">at {item.latestStore}</span>
-                    <span className="recent-when">{timeAgo(item.latestAt)}</span>
-                  </div>
+          {items.map(item => {
+            const badge = freshnessBadge(item.last_scanned_at)
+            const lowestEntry = item.top3?.[0]
+            const lowestStore = lowestEntry
+              ? allStores.find(s => s.id === lowestEntry.store_id)?.name || lowestEntry.store_id
+              : null
+            return (
+              <div key={item.upc} className="recent-card">
+                {item.image_url ? (
+                  <img src={item.image_url} alt={item.name} className="recent-thumb" />
+                ) : (
+                  <div className="recent-thumb recent-thumb-placeholder">🛒</div>
                 )}
+                <div className="recent-info">
+                  <div className="recent-name">{item.name}</div>
+                  {item.brand && <div className="recent-brand">{item.brand}</div>}
+                  {(item.normalized_category || item.category) && (
+                    <div className="recent-cat">{item.normalized_category || item.category}</div>
+                  )}
+                  {item.storeCount > 0 && lowestEntry && (
+                    <div className="price-intel-row">
+                      <div className="price-intel-main">
+                        {item.storeCount > 1
+                          ? <span className="price-intel-store-count">From ${lowestEntry.price.toFixed(2)} across {item.storeCount} stores</span>
+                          : <span>From ${lowestEntry.price.toFixed(2)} at {lowestStore}</span>
+                        }
+                        <span className={`freshness-badge ${badge.cls}`}>{badge.label}</span>
+                      </div>
+                      <button className="top3-toggle" onClick={() => togglePrices(item.upc)}>
+                        {expandedPrices.has(item.upc) ? '▲ Hide' : '▼ Best prices'}
+                      </button>
+                      {expandedPrices.has(item.upc) && (
+                        <div className="top3-list">
+                          {item.top3.map((entry, i) => {
+                            const storeName = allStores.find(s => s.id === entry.store_id)?.name || entry.store_id
+                            return (
+                              <div key={i} className="top3-row">
+                                ${entry.price.toFixed(2)} · {storeName} · {timeAgo(entry.created_at)}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>
