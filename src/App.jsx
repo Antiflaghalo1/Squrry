@@ -8,7 +8,7 @@ import AuthView from './components/AuthView'
 import LegalView from './components/LegalView'
 import ProfileMenu from './components/ProfileMenu'
 import ProfileView from './components/ProfileView'
-import SavedView from './components/SavedView'
+import HamburgerDrawer from './components/HamburgerDrawer'
 import { supabase } from './lib/supabase'
 import './App.css'
 
@@ -23,6 +23,7 @@ export default function App() {
   const [user, setUser] = useState(null)
   const [authLoading, setAuthLoading] = useState(true)
   const [showProfileMenu, setShowProfileMenu] = useState(false)
+  const [showDrawer, setShowDrawer] = useState(false)
   const viewStack = useRef([])
   const userRef = useRef(null)
 
@@ -126,7 +127,7 @@ export default function App() {
     <div className="app">
       <header className="header">
         <div className="topbar-inner">
-          <button className="topbar-menu-btn" onClick={() => console.log('menu')}>
+          <button className="topbar-menu-btn" onClick={() => setShowDrawer(true)}>
             <Menu size={22} />
           </button>
           <div className="topbar-wordmark">
@@ -155,19 +156,6 @@ export default function App() {
 
       {view === 'list' && (
         <>
-          <div className="budget-bar">
-            <label>My Budget</label>
-            <div className="budget-wrap">
-              <span>$</span>
-              <input
-                type="number"
-                placeholder="0.00"
-                value={budget}
-                onChange={e => setBudget(e.target.value)}
-              />
-            </div>
-          </div>
-
           <div className="section-hint">
             {selectedItems.size > 0
               ? `${selectedItems.size} item${selectedItems.size !== 1 ? 's' : ''} on your list`
@@ -255,13 +243,7 @@ export default function App() {
         <div className="coming-soon-view">Coming soon 🐿️</div>
       )}
       {view === 'saved' && (
-        <SavedView
-          budget={budget}
-          setBudget={setBudget}
-          onLegal={(type) => navTo(type)}
-          onSignOut={handleSignOut}
-          onBudget={() => navTo('list')}
-        />
+        <div className="coming-soon-view">Coming soon 🐿️</div>
       )}
       {view === 'profile' && (
         <ProfileView user={user} onSignOut={handleSignOut} />
@@ -274,6 +256,15 @@ export default function App() {
           onClose={() => setShowProfileMenu(false)}
         />
       )}
+
+      <HamburgerDrawer
+        isOpen={showDrawer}
+        onClose={() => setShowDrawer(false)}
+        budget={budget}
+        onBudgetChange={e => setBudget(e.target.value)}
+        onLegal={(type) => { setShowDrawer(false); navTo(type) }}
+        onSignOut={() => { setShowDrawer(false); handleSignOut() }}
+      />
 
       {view !== 'scan' && view !== 'auth' && view !== 'tos' && view !== 'privacy' && (
         <nav className="bottom-nav">

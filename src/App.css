@@ -229,6 +229,23 @@ h1 { font-size: 20px; font-weight: 800; }
 .profile-view-email { font-size: 15px; color: var(--text-muted); font-weight: 600; text-align: center; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid var(--border); width: 100%; }
 .profile-view-signout { width: 100%; margin-top: 12px; }
 
+/* ── Hamburger drawer ── */
+.drawer-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 300; pointer-events: none; opacity: 0; transition: opacity .25s ease; }
+.drawer-backdrop--open { pointer-events: all; opacity: 1; }
+.drawer { position: fixed; top: 0; left: 0; height: 100%; width: 280px; background: var(--bg); z-index: 301; display: flex; flex-direction: column; transform: translateX(-100%); transition: transform .25s ease; box-shadow: 4px 0 20px rgba(0,0,0,.15); }
+.drawer--open { transform: translateX(0); }
+.drawer-close-btn { position: absolute; top: 14px; right: 14px; background: none; border: none; font-size: 18px; color: var(--text-muted); cursor: pointer; line-height: 1; padding: 4px; }
+.drawer-close-btn:active { color: var(--text); }
+.drawer-header { padding: 24px 20px 20px; font-size: 20px; font-weight: 900; color: var(--green); }
+.drawer-divider { height: 1px; background: var(--border); margin: 0; }
+.drawer-section { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; gap: 12px; }
+.drawer-section-label { font-size: 15px; font-weight: 600; color: var(--text); white-space: nowrap; }
+.drawer-section .budget-wrap { font-size: 17px; font-weight: 700; }
+.drawer-section .budget-wrap input { font-size: 17px; font-weight: 700; width: 80px; }
+.drawer-menu-row { width: 100%; background: none; border: none; text-align: left; padding: 16px 20px; font-size: 15px; font-weight: 600; color: var(--text); cursor: pointer; border-bottom: 1px solid var(--border); }
+.drawer-menu-row:active { background: var(--green-pale); }
+.drawer-signout-row { color: var(--text-muted); border-bottom: none; }
+
 /* ── Saved / Money Hub view ── */
 .saved-view { padding: 0 0 40px; }
 .saved-header { padding: 28px 20px 20px; }
