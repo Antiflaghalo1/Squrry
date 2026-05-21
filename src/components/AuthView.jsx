@@ -8,6 +8,9 @@ export default function AuthView({ onBack, gated = false }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [resetLoading, setResetLoading] = useState(false)
+  const [resetMsg, setResetMsg] = useState('')
+  const [resetError, setResetError] = useState('')
 
   async function handleSubmit() {
     setError('')
@@ -60,6 +63,30 @@ export default function AuthView({ onBack, gated = false }) {
         value={password}
         onChange={e => setPassword(e.target.value)}
       />
+
+      {mode === 'signin' && (
+        <div style={{ textAlign: 'right', marginTop: 6 }}>
+          <button
+            type="button"
+            style={{ background: 'none', border: 'none', padding: 0, color: 'var(--text-muted)', fontSize: 13, cursor: 'pointer', textDecoration: 'underline' }}
+            disabled={resetLoading}
+            onClick={async () => {
+              setResetMsg('')
+              setResetError('')
+              if (!email.trim()) { setResetError('Enter your email above first.'); return }
+              setResetLoading(true)
+              const { error: err } = await supabase.auth.resetPasswordForEmail(email.trim())
+              setResetLoading(false)
+              if (err) setResetError(err.message)
+              else setResetMsg('Check your inbox — we sent a reset link 📬')
+            }}
+          >
+            {resetLoading ? 'Sending…' : 'Forgot your password?'}
+          </button>
+          {resetMsg && <p style={{ color: 'var(--green)', fontSize: 13, marginTop: 6, fontWeight: 600 }}>{resetMsg}</p>}
+          {resetError && <p style={{ color: '#C62828', fontSize: 13, marginTop: 6 }}>{resetError}</p>}
+        </div>
+      )}
 
       {error && (
         <p style={{ color: '#C62828', fontSize: 13, marginTop: 10 }}>{error}</p>

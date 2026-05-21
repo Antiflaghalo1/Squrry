@@ -17,14 +17,17 @@ export default function App() {
   const [user, setUser] = useState(null)
   const [authLoading, setAuthLoading] = useState(true)
   const viewStack = useRef([])
+  const userRef = useRef(null)
 
   // Auth state listener
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
+      userRef.current = session?.user ?? null
       setUser(session?.user ?? null)
       setAuthLoading(false)
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      userRef.current = session?.user ?? null
       setUser(session?.user ?? null)
     })
     return () => subscription.unsubscribe()
@@ -41,6 +44,7 @@ export default function App() {
   }
 
   const handlePopState = () => {
+    if (!userRef.current) return
     const prev = viewStack.current.pop()
     if (prev !== undefined) setView(prev)
   }
