@@ -40,7 +40,7 @@ function daysAgo(ts) {
   return `${d}d ago`
 }
 
-export default function ScanView({ onBack }) {
+export default function ScanView({ onBack, user }) {
   const videoRef = useRef(null)
   const controlsRef = useRef(null)
   const shelfVideoRef = useRef(null)
@@ -301,14 +301,14 @@ export default function ScanView({ onBack }) {
       return
     }
     localStorage.setItem('basketsplit_last_store', storeId)
-    addObservation({
+    await addObservation({
       barcode,
       productName: productName.trim(),
       storeId,
       price: parseFloat(parsedPrice.toFixed(2)),
       timestamp: Date.now(),
       hasPhoto: !!photoBlob,
-    })
+    }, user?.id)
     setPhase('saved')
   }
 

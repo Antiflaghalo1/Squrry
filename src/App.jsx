@@ -2,6 +2,8 @@ import { useState, useRef, useEffect } from 'react'
 import { ITEMS } from './data/stores'
 import { optimizeBasket } from './utils/optimizer'
 import ScanView from './components/ScanView'
+import AuthView from './components/AuthView'
+import { supabase } from './lib/supabase'
 import './App.css'
 
 const CATEGORIES = [...new Set(ITEMS.map(i => i.category))]
@@ -12,7 +14,19 @@ export default function App() {
   const [results, setResults] = useState(null)
   const [view, setView] = useState('list')
   const [showNoBudgetBanner, setShowNoBudgetBanner] = useState(false)
+  const [user, setUser] = useState(null)
   const viewStack = useRef([])
+
+  // Auth state listener
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null)
+    })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null)
+    })
+    return () => subscription.unsubscribe()
+  }, [])
 
   const navTo = (newView) => {
     viewStack.current.push(view)
@@ -26,9 +40,7 @@ export default function App() {
 
   const handlePopState = () => {
     const prev = viewStack.current.pop()
-    if (prev !== undefined) {
-      setView(prev)
-    }
+    if (prev !== undefined) setView(prev)
   }
 
   useEffect(() => {
@@ -51,8 +63,15 @@ export default function App() {
     setShowNoBudgetBanner(!budget)
   }
 
+  async function handleSignOut() {
+    await supabase.auth.signOut()
+  }
+
   const budgetNum = parseFloat(budget) || 0
   const overBudget = results && budgetNum > 0 && results.grandTotal > budgetNum
+
+  // User initial for header avatar
+  const userInitial = user?.email?.[0]?.toUpperCase()
 
   return (
     <div className="app">
@@ -63,15 +82,27 @@ export default function App() {
             <h1>BasketSplit</h1>
             <p className="tagline">IE's smartest grocery optimizer</p>
           </div>
-          {view !== 'scan' && (
-            <button className="scan-header-btn" onClick={() => navTo('scan')}>
-              📷 Scan
-            </button>
-          )}
+          <div className="header-actions">
+            {view !== 'scan' && (
+              <button className="scan-header-btn" onClick={() => navTo('scan')}>
+                📷 Scan
+              </button>
+            )}
+            {user ? (
+              <button className="user-avatar-btn" title={user.email} onClick={handleSignOut}>
+                {userInitial}
+              </button>
+            ) : (
+              <button className="sign-in-btn" onClick={() => navTo('auth')}>
+                Sign In
+              </button>
+            )}
+          </div>
         </div>
       </header>
 
-      {view === 'scan' && <ScanView onBack={goBack} />}
+      {view === 'scan' && <ScanView onBack={goBack} user={user} />}
+      {view === 'auth' && <AuthView onBack={goBack} />}
 
       {view === 'list' && (
         <>
