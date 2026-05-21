@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Menu, Search, ShoppingCart, Home, LayoutGrid, Camera, Heart, User } from 'lucide-react'
+import { Menu, Search, ShoppingCart, Home, LayoutGrid, ScanLine, Heart, User } from 'lucide-react'
 import { ITEMS } from './data/stores'
 import { optimizeBasket } from './utils/optimizer'
 import ScanView from './components/ScanView'
@@ -8,6 +8,7 @@ import AuthView from './components/AuthView'
 import LegalView from './components/LegalView'
 import ProfileMenu from './components/ProfileMenu'
 import ProfileView from './components/ProfileView'
+import SavedView from './components/SavedView'
 import { supabase } from './lib/supabase'
 import './App.css'
 
@@ -143,9 +144,6 @@ export default function App() {
                 <span className="topbar-cart-badge">{selectedItems.size}</span>
               )}
             </div>
-            <button className="user-avatar-btn" title={user.email} onClick={() => setShowProfileMenu(true)}>
-              {userInitial}
-            </button>
           </div>
         </div>
       </header>
@@ -257,7 +255,13 @@ export default function App() {
         <div className="coming-soon-view">Coming soon 🐿️</div>
       )}
       {view === 'saved' && (
-        <div className="coming-soon-view">Coming soon 🐿️</div>
+        <SavedView
+          budget={budget}
+          setBudget={setBudget}
+          onLegal={(type) => navTo(type)}
+          onSignOut={handleSignOut}
+          onBudget={() => navTo('list')}
+        />
       )}
       {view === 'profile' && (
         <ProfileView user={user} onSignOut={handleSignOut} />
@@ -282,7 +286,7 @@ export default function App() {
             <span className="bottom-nav-label">Categories</span>
           </button>
           <button className="bottom-nav-scan" onClick={() => navTo('scan')}>
-            <Camera size={26} />
+            <ScanLine size={26} />
           </button>
           <button className={`bottom-nav-tab${view === 'saved' ? ' active' : ''}`} onClick={() => navTo('saved')}>
             <Heart size={22} />

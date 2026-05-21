@@ -212,7 +212,7 @@ h1 { font-size: 20px; font-weight: 800; }
 .topbar-search-btn:active,
 .topbar-cart-btn:active { background: rgba(255,255,255,.3); }
 .topbar-cart-wrap { position: relative; }
-.topbar-cart-badge { position: absolute; top: -5px; right: -5px; background: var(--green); color: white; font-size: 10px; font-weight: 800; min-width: 16px; height: 16px; border-radius: 999px; display: flex; align-items: center; justify-content: center; padding: 0 3px; line-height: 1; pointer-events: none; }
+.topbar-cart-badge { position: absolute; top: -5px; right: -5px; background: #C8922A; color: white; font-size: 10px; font-weight: 800; min-width: 16px; height: 16px; border-radius: 999px; display: flex; align-items: center; justify-content: center; padding: 0 3px; line-height: 1; pointer-events: none; }
 
 /* ── Bottom navigation bar ── */
 .app { padding-bottom: 80px; }
@@ -228,3 +228,19 @@ h1 { font-size: 20px; font-weight: 800; }
 .profile-view { padding: 28px 20px 40px; display: flex; flex-direction: column; align-items: center; gap: 0; }
 .profile-view-email { font-size: 15px; color: var(--text-muted); font-weight: 600; text-align: center; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid var(--border); width: 100%; }
 .profile-view-signout { width: 100%; margin-top: 12px; }
+
+/* ── Saved / Money Hub view ── */
+.saved-view { padding: 0 0 40px; }
+.saved-header { padding: 28px 20px 20px; }
+.saved-title { font-size: 26px; font-weight: 900; color: var(--text); margin-bottom: 6px; }
+.saved-subtitle { font-size: 14px; color: var(--text-muted); }
+.saved-menu-section { background: white; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.saved-menu-row { width: 100%; display: flex; align-items: center; justify-content: space-between; background: none; border: none; border-bottom: 1px solid var(--border); padding: 16px 20px; font-size: 16px; font-weight: 600; color: var(--text); cursor: pointer; text-align: left; }
+.saved-menu-row:last-child { border-bottom: none; }
+.saved-menu-row:active { background: var(--green-pale); }
+.saved-menu-label { flex: 1; }
+.saved-menu-chevron { font-size: 18px; color: var(--text-muted); }
+.saved-divider { height: 20px; }
+.saved-signout-section { padding: 0 20px; }
+.saved-signout-btn { width: 100%; background: none; border: 1.5px solid var(--border); border-radius: 12px; padding: 14px; font-size: 16px; font-weight: 700; color: var(--text-muted); cursor: pointer; }
+.saved-signout-btn:active { background: var(--border); }
