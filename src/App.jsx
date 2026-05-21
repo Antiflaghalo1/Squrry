@@ -112,7 +112,10 @@ export default function App() {
           </div>
         </div>
       </header>
-      <AuthView onBack={() => {}} gated onLegal={(type) => navTo(type)} />
+      {(view === 'tos' || view === 'privacy')
+        ? <LegalView type={view} onBack={() => setView('list')} />
+        : <AuthView onBack={() => {}} gated onLegal={(type) => setView(type)} />
+      }
     </div>
   )
 
