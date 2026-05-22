@@ -47,7 +47,18 @@ export default function HomeView({ user, firstName, budget, onBudgetNav, onSeeAl
         .or(`valid_to.is.null,valid_to.gte.${today}`)
         .order('price', { ascending: true })
         .limit(20)
-      setDeals(data || [])
+      const seen = new Set()
+      const deduped = (data || []).filter(item => {
+        const key = `${item.product_name}|${item.store_id}`
+        if (seen.has(key)) return false
+        seen.add(key)
+        return true
+      })
+      for (let i = deduped.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [deduped[i], deduped[j]] = [deduped[j], deduped[i]]
+      }
+      setDeals(deduped)
     } catch {
       setDeals([])
     }
