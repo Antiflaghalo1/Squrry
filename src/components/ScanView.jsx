@@ -6,6 +6,7 @@ import { PRODUCTS } from '../data/products'
 import { addObservation, upsertProduct } from '../data/observations'
 import { getCustomStores, addCustomStore } from '../data/customStores'
 import { supabase } from '../lib/supabase'
+import ReportModal from './ReportModal'
 
 const WEBHOOK_URL = import.meta.env.VITE_WEBHOOK_URL
 const GPS_RADIUS_M = 400
@@ -39,6 +40,18 @@ function daysAgo(ts) {
   if (d === 0) return 'today'
   if (d === 1) return 'yesterday'
   return `${d}d ago`
+}
+
+function timeAgo(ts) {
+  const diff = Date.now() - new Date(ts).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins}m ago`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  if (days === 1) return 'yesterday'
+  return `${days}d ago`
 }
 
 export default function ScanView({ onBack, user }) {
@@ -81,6 +94,10 @@ export default function ScanView({ onBack, user }) {
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState(null)
   const [photoBlob, setPhotoBlob] = useState(null)
   const [photoCapturing, setPhotoCapturing] = useState(false)
+  const [recognizedProduct, setRecognizedProduct] = useState(null)
+  const [lastObservation, setLastObservation] = useState(null)
+  const [selectedCategory, setSelectedCategory] = useState('')
+  const [showReportModal, setShowReportModal] = useState(false)
 
   // Load stores from Supabase
   useEffect(() => {
@@ -197,10 +214,12 @@ export default function ScanView({ onBack, user }) {
     setProductCategory('')
     setProductQuantity('')
     setProductImageUrl('')
+    setRecognizedProduct(null)
+    setLastObservation(null)
 
     const { data: cached } = await supabase
       .from('products')
-      .select('name, brand, category, quantity, image_url')
+      .select('name, brand, category, normalized_category, quantity, image_url')
       .eq('upc', code)
       .maybeSingle()
 
@@ -210,6 +229,16 @@ export default function ScanView({ onBack, user }) {
       setProductCategory(cached.category || '')
       setProductQuantity(cached.quantity || '')
       setProductImageUrl(cached.image_url || '')
+      setRecognizedProduct({ image_url: cached.image_url || '', normalized_category: cached.normalized_category || '' })
+      const { data: obs } = await supabase
+        .from('observations')
+        .select('store_id, price, created_at')
+        .eq('barcode', code)
+        .eq('voided', false)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      setLastObservation(obs || null)
       return
     }
 
@@ -368,6 +397,7 @@ export default function ScanView({ onBack, user }) {
       category: productCategory,
       quantity: productQuantity,
       image_url: productImageUrl,
+      ...(!recognizedProduct && { normalized_category: selectedCategory || 'Miscellaneous' }),
     })
     await addObservation({
       barcode,
@@ -396,6 +426,10 @@ export default function ScanView({ onBack, user }) {
     setShowAddStore(false)
     setSavedFlash(false)
     setPhotoCapturing(false)
+    setRecognizedProduct(null)
+    setLastObservation(null)
+    setSelectedCategory('')
+    setShowReportModal(false)
     setPhase('scanning')
     setScanKey(k => k + 1)
   }
@@ -439,6 +473,28 @@ export default function ScanView({ onBack, user }) {
           <button className="back-btn" onClick={onBack}>← Cancel</button>
           <p className="scan-code-label">Barcode: <strong>{barcode}</strong></p>
 
+          {recognizedProduct && (
+            <div className="scan-recognized-banner">
+              {recognizedProduct.image_url ? (
+                <img src={recognizedProduct.image_url} alt={productName} style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
+              ) : (
+                <div style={{ width: 48, height: 48, borderRadius: 8, background: '#e0e0e0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>🛒</div>
+              )}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ color: 'var(--green)', fontSize: 12, fontWeight: 700 }}>✅ We know this!</div>
+                <div style={{ color: 'var(--text)', fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{productName}</div>
+                {recognizedProduct.normalized_category && (
+                  <div style={{ color: 'var(--text-muted)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{recognizedProduct.normalized_category}</div>
+                )}
+                {lastObservation && (
+                  <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>
+                    Last seen: ${parseFloat(lastObservation.price).toFixed(2)} at {allStores.find(s => s.id === lastObservation.store_id)?.name || lastObservation.store_id} · {timeAgo(lastObservation.created_at)}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Existing prices */}
           {pricesLoading && (
             <div className="existing-prices-loading">🔍 Checking our database…</div>
@@ -471,6 +527,33 @@ export default function ScanView({ onBack, user }) {
               value={productName}
               onChange={e => setProductName(e.target.value)}
             />
+          )}
+
+          {/* Category — only for truly new products */}
+          {!recognizedProduct && (
+            <div className="scan-field">
+              <label className="scan-label">Category</label>
+              <select
+                className="scan-input"
+                value={selectedCategory}
+                onChange={e => setSelectedCategory(e.target.value)}
+              >
+                <option value="">Select a category…</option>
+                <option value="Dairy & Eggs">Dairy &amp; Eggs</option>
+                <option value="Meat & Seafood">Meat &amp; Seafood</option>
+                <option value="Produce">Produce</option>
+                <option value="Bakery & Bread">Bakery &amp; Bread</option>
+                <option value="Pantry & Canned">Pantry &amp; Canned</option>
+                <option value="Snacks & Candy">Snacks &amp; Candy</option>
+                <option value="Beverages">Beverages</option>
+                <option value="Breakfast & Cereal">Breakfast &amp; Cereal</option>
+                <option value="Frozen Foods">Frozen Foods</option>
+                <option value="Health & Beauty">Health &amp; Beauty</option>
+                <option value="Household & Cleaning">Household &amp; Cleaning</option>
+                <option value="Baby & Kids">Baby &amp; Kids</option>
+                <option value="Miscellaneous">Miscellaneous</option>
+              </select>
+            </div>
           )}
 
           {/* Store */}
@@ -576,7 +659,7 @@ export default function ScanView({ onBack, user }) {
             className="cta-btn"
             style={{ marginTop: 28 }}
             onClick={handleSave}
-            disabled={!price || !productName.trim() || lookingUp}
+            disabled={!price || !productName.trim() || lookingUp || (!recognizedProduct && !selectedCategory)}
           >
             Save Price →
           </button>
@@ -593,8 +676,22 @@ export default function ScanView({ onBack, user }) {
             <span className="scan-saved-meta">${parseFloat(price).toFixed(2)} at {savedStore?.name}</span>
             {photoBlob && <span className="scan-saved-meta">📷 Photo attached</span>}
           </div>
-          <button className="cta-btn" style={{ marginTop: 32 }} onClick={resetForNextScan}>Scan Another</button>
+          <button
+            style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 12, textDecoration: 'underline', cursor: 'pointer', padding: '4px 0', marginTop: 8 }}
+            onClick={() => setShowReportModal(true)}
+          >
+            ⚠️ Something not right? Report it
+          </button>
+          <button className="cta-btn" style={{ marginTop: 24 }} onClick={resetForNextScan}>Scan Another</button>
           <button className="back-btn scan-done-btn" onClick={onBack}>Done</button>
+          {showReportModal && (
+            <ReportModal
+              targetId={barcode}
+              targetName={productName}
+              userId={user?.id}
+              onClose={() => setShowReportModal(false)}
+            />
+          )}
         </div>
       )}
 

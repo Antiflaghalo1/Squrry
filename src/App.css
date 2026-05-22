@@ -198,6 +198,7 @@ h1 { font-size: 17px; font-weight: 800; color: var(--text); }
 /* ── Phase 2.1 ── */
 .scan-gps-badge { background: rgba(0,0,0,.55); color: white; font-size: 13px; font-weight: 700; padding: 6px 14px; border-radius: 20px; pointer-events: none; }
 .gps-detected-label { font-size: 12px; color: var(--green); font-weight: 600; margin-bottom: 2px; margin-top: -4px; }
+.scan-recognized-banner { background: white; border: 1.5px solid var(--green-pale); border-radius: 12px; padding: 12px 14px; margin-bottom: 16px; display: flex; align-items: center; gap: 12px; }
 .existing-prices-loading { font-size: 13px; color: var(--text-muted); font-style: italic; padding: 10px 0 4px; }
 .existing-prices-card { background: white; border: 1.5px solid var(--border); border-radius: 12px; padding: 14px 16px; margin: 6px 0 4px; }
 .existing-prices-title { font-size: 13px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 10px; }
@@ -219,6 +220,10 @@ h1 { font-size: 17px; font-weight: 800; color: var(--text); }
 .user-avatar-btn { width: 32px; height: 32px; border-radius: 50%; background: var(--green); color: white; font-size: 14px; font-weight: 900; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 0; }
 
 /* Profile bottom sheet */
+.report-modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 600; padding: 20px; box-sizing: border-box; }
+.report-modal { background: white; border-radius: 16px; padding: 20px; max-width: 360px; width: 100%; }
+.report-modal-options { display: flex; flex-direction: column; }
+.report-modal-actions { display: flex; gap: 10px; margin-top: 16px; }
 .profile-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 200; display: flex; flex-direction: column; justify-content: flex-end; }
 @keyframes sheet-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
 .profile-sheet { background: var(--bg); border-radius: 20px 20px 0 0; padding: 12px 20px 40px; animation: sheet-up .22s ease-out; max-width: 480px; width: 100%; margin: 0 auto; }

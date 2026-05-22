@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { getAllStores } from '../data/storeService'
 import { getCustomStores } from '../data/customStores'
-import { saveItem } from '../data/savedItems'
+import { saveItem, removeSavedItem } from '../data/savedItems'
+import ReportModal from './ReportModal'
 
 const CAT_META = {
   'Dairy & Eggs':          { emoji: '🥛', bg: '#E1F5EE', dot: '#1D9E75' },
@@ -55,13 +56,14 @@ function formatDate(dateStr) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
-export default function CategoriesView({ onBack, userId, savedUpcs = new Set(), onItemSaved }) {
+export default function CategoriesView({ onBack, userId, savedUpcs = new Set(), onItemSaved, onItemRemoved }) {
   const [stores, setStores] = useState([])
   const [groups, setGroups] = useState([])
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState(null)
   const [obsMap, setObsMap] = useState({})
   const [expandedPrices, setExpandedPrices] = useState(new Set())
+  const [reportTarget, setReportTarget] = useState(null)
 
   const allStores = [...stores, ...getCustomStores()]
 
@@ -123,7 +125,8 @@ export default function CategoriesView({ onBack, userId, savedUpcs = new Set(), 
       supabase
         .from('observations')
         .select('barcode, price, store_id, created_at')
-        .in('barcode', upcs),
+        .in('barcode', upcs)
+        .eq('voided', false),
       supabase
         .from('flipp_observations')
         .select('barcode, store_id, price, valid_to')
@@ -169,6 +172,14 @@ export default function CategoriesView({ onBack, userId, savedUpcs = new Set(), 
     const group = groups.find(g => g.name === expanded)
     return (
       <div className="categories-view">
+        {reportTarget && (
+          <ReportModal
+            targetId={reportTarget.targetId}
+            targetName={reportTarget.targetName}
+            userId={userId}
+            onClose={() => setReportTarget(null)}
+          />
+        )}
         <button className="back-btn" onClick={() => setExpanded(null)}>← Categories</button>
         <div className="categories-header">
           <h2 className="categories-title">{group.name}</h2>
@@ -232,15 +243,28 @@ export default function CategoriesView({ onBack, userId, savedUpcs = new Set(), 
                   <div className="saved-action-row">
                     <button
                       className="save-heart-btn"
-                      style={savedUpcs.has(String(item.upc)) ? { color: 'var(--green)' } : {}}
+                      style={savedUpcs.has(String(item.upc))
+                        ? { color: 'var(--green)', fontWeight: 700, background: 'var(--green-pale)', padding: '4px 10px', borderRadius: '16px' }
+                        : { color: 'var(--text-muted)', background: 'transparent' }}
                       onClick={() => {
-                        if (!savedUpcs.has(String(item.upc))) {
+                        const upc = String(item.upc)
+                        if (savedUpcs.has(upc)) {
+                          removeSavedItem(userId, upc)
+                          onItemRemoved?.(upc)
+                        } else {
                           saveItem(userId, item)
                           onItemSaved?.(item)
                         }
                       }}
                     >
                       {savedUpcs.has(String(item.upc)) ? '♥ Saved' : '♡ Save'}
+                    </button>
+                    <button
+                      className="save-heart-btn"
+                      style={{ color: 'var(--text-muted)', background: 'transparent' }}
+                      onClick={() => setReportTarget({ targetId: String(item.upc), targetName: item.name })}
+                    >
+                      ⚠️ Report
                     </button>
                   </div>
                 </div>

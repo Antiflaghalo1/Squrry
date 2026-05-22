@@ -11,6 +11,7 @@ export async function optimizeFromSupabase(selectedUpcs, stores) {
       .from('observations')
       .select('barcode, store_id, price')
       .in('barcode', selectedUpcs)
+      .eq('voided', false)
       .gt('price', 0)
       .lt('price', 500),
     supabase

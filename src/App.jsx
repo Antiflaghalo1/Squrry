@@ -365,6 +365,7 @@ export default function App() {
           userId={user?.id}
           savedUpcs={savedUpcs}
           onItemSaved={handleSaveItem}
+          onItemRemoved={handleRemoveItem}
         />
       )}
       {view === 'saved' && (

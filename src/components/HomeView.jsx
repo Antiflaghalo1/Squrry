@@ -23,7 +23,7 @@ export default function HomeView({ user, firstName, budget, onBudgetNav, onSeeAl
   useEffect(() => {
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
     Promise.all([
-      supabase.from('observations').select('*', { count: 'exact', head: true }).gte('created_at', sevenDaysAgo),
+      supabase.from('observations').select('*', { count: 'exact', head: true }).eq('voided', false).gte('created_at', sevenDaysAgo),
       supabase.from('products').select('*', { count: 'exact', head: true }),
     ]).then(([{ count: prices }, { count: products }]) => {
       setPulseStats({ prices, products })
@@ -95,6 +95,7 @@ export default function HomeView({ user, firstName, budget, onBudgetNav, onSeeAl
         .from('observations')
         .select('barcode, price, created_at')
         .in('barcode', upcs)
+        .eq('voided', false)
         .order('created_at', { ascending: false })
 
       const latestPriceByUpc = {}

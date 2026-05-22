@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { getAllStores } from '../data/storeService'
 import { getCustomStores } from '../data/customStores'
+import ReportModal from './ReportModal'
 
 function timeAgo(ts) {
   const diff = Date.now() - new Date(ts).getTime()
@@ -34,6 +35,7 @@ export default function RecentScansView({ onBack, userId }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [expandedPrices, setExpandedPrices] = useState(new Set())
+  const [reportTarget, setReportTarget] = useState(null)
 
   const allStores = [...stores, ...getCustomStores()]
 
@@ -104,8 +106,9 @@ export default function RecentScansView({ onBack, userId }) {
       const today = new Date().toISOString().split('T')[0]
       let obsQuery = supabase
         .from('observations')
-        .select('barcode, price, store_id, created_at')
+        .select('id, barcode, price, store_id, created_at')
         .in('barcode', upcs)
+        .eq('voided', false)
         .order('created_at', { ascending: false })
       if (userId) obsQuery = obsQuery.eq('user_id', userId)
 
@@ -148,7 +151,12 @@ export default function RecentScansView({ onBack, userId }) {
         const flippSale = (communityLowest != null && flippBest && flippBest.price < communityLowest)
           ? flippBest
           : null
-        return { ...p, avgPrice, top3, storeCount, flippSale }
+        const mostRecentObs = upcObs[0] || null
+        const voidableObs = userId && mostRecentObs &&
+          (Date.now() - new Date(mostRecentObs.created_at).getTime()) < 86400000
+          ? mostRecentObs
+          : null
+        return { ...p, avgPrice, top3, storeCount, flippSale, voidableObs }
       })
 
       setItems(enriched)
@@ -242,11 +250,44 @@ export default function RecentScansView({ onBack, userId }) {
                       )}
                     </div>
                   )}
+                  <div className="saved-action-row">
+                    {item.voidableObs && (
+                      <button
+                        style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 11, textDecoration: 'underline', cursor: 'pointer', padding: '2px 0' }}
+                        onClick={async () => {
+                          if (!window.confirm('Void this scan? This removes it from price calculations but the product stays in the database.')) return
+                          await supabase
+                            .from('observations')
+                            .update({ voided: true, voided_at: new Date().toISOString() })
+                            .eq('id', item.voidableObs.id)
+                            .eq('user_id', userId)
+                          loadRecent()
+                        }}
+                      >
+                        ⊘ Void
+                      </button>
+                    )}
+                    <button
+                      className="save-heart-btn"
+                      style={{ color: 'var(--text-muted)', background: 'transparent' }}
+                      onClick={() => setReportTarget({ targetId: String(item.upc), targetName: item.name })}
+                    >
+                      ⚠️ Report
+                    </button>
+                  </div>
                 </div>
               </div>
             )
           })}
         </div>
+      )}
+      {reportTarget && (
+        <ReportModal
+          targetId={reportTarget.targetId}
+          targetName={reportTarget.targetName}
+          userId={userId}
+          onClose={() => setReportTarget(null)}
+        />
       )}
     </div>
   )
