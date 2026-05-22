@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { AlertTriangle } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { getAllStores } from '../data/storeService'
 import { getCustomStores } from '../data/customStores'
@@ -269,10 +270,9 @@ export default function RecentScansView({ onBack, userId }) {
                     )}
                     <button
                       className="save-heart-btn"
-                      style={{ color: 'var(--text-muted)', background: 'transparent' }}
                       onClick={() => setReportTarget({ targetId: String(item.upc), targetName: item.name })}
                     >
-                      ⚠️ Report
+                      <AlertTriangle size={13} /> Report
                     </button>
                   </div>
                 </div>

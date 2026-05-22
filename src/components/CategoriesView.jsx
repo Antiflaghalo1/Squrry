@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Heart, AlertTriangle } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { getAllStores } from '../data/storeService'
 import { getCustomStores } from '../data/customStores'
@@ -242,10 +243,7 @@ export default function CategoriesView({ onBack, userId, savedUpcs = new Set(), 
                   )}
                   <div className="saved-action-row">
                     <button
-                      className="save-heart-btn"
-                      style={savedUpcs.has(String(item.upc))
-                        ? { color: 'var(--green)', fontWeight: 700, background: 'var(--green-pale)', padding: '4px 10px', borderRadius: '16px' }
-                        : { color: 'var(--text-muted)', background: 'transparent' }}
+                      className={savedUpcs.has(String(item.upc)) ? 'save-heart-btn save-heart-btn-saved' : 'save-heart-btn'}
                       onClick={() => {
                         const upc = String(item.upc)
                         if (savedUpcs.has(upc)) {
@@ -257,14 +255,15 @@ export default function CategoriesView({ onBack, userId, savedUpcs = new Set(), 
                         }
                       }}
                     >
-                      {savedUpcs.has(String(item.upc)) ? '♥ Saved' : '♡ Save'}
+                      {savedUpcs.has(String(item.upc))
+                        ? <><Heart size={13} fill="currentColor" /> Saved</>
+                        : <><Heart size={13} /> Save</>}
                     </button>
                     <button
                       className="save-heart-btn"
-                      style={{ color: 'var(--text-muted)', background: 'transparent' }}
                       onClick={() => setReportTarget({ targetId: String(item.upc), targetName: item.name })}
                     >
-                      ⚠️ Report
+                      <AlertTriangle size={13} /> Report
                     </button>
                   </div>
                 </div>

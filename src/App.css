@@ -265,10 +265,10 @@ h1 { font-size: 17px; font-weight: 800; color: var(--text); }
 .topbar-actions { margin-left: auto; display: flex; align-items: center; gap: 6px; }
 .topbar-menu-btn,
 .topbar-search-btn,
-.topbar-cart-btn { background: rgba(0,0,0,.06); border: 1px solid var(--border); color: var(--text-muted); border-radius: 8px; padding: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.topbar-cart-btn { background: var(--green-pale); border: 1.5px solid var(--green-pale); color: var(--green); border-radius: 8px; padding: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
 .topbar-menu-btn:active,
 .topbar-search-btn:active,
-.topbar-cart-btn:active { background: rgba(0,0,0,.1); }
+.topbar-cart-btn:active { background: var(--green); color: white; }
 .topbar-cart-wrap { position: relative; }
 .topbar-cart-badge { position: absolute; top: -5px; right: -5px; background: #C8922A; color: white; font-size: 10px; font-weight: 800; min-width: 16px; height: 16px; border-radius: 999px; display: flex; align-items: center; justify-content: center; padding: 0 3px; line-height: 1; pointer-events: none; }
 
@@ -302,26 +302,28 @@ h1 { font-size: 17px; font-weight: 800; color: var(--text); }
 .drawer-profile-avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--green); color: white; font-size: 16px; font-weight: 800; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; }
 .drawer-profile-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block; }
 .drawer-profile-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.drawer-profile-name { font-size: 15px; font-weight: 700; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.drawer-profile-email { font-size: 12px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.drawer-profile-name { font-size: 15px; font-weight: 700; color: white; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.drawer-profile-email { font-size: 12px; color: rgba(255,255,255,.7); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ── Hamburger drawer ── */
 .drawer-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 300; pointer-events: none; opacity: 0; transition: opacity .25s ease; }
 .drawer-backdrop--open { pointer-events: all; opacity: 1; }
-.drawer { position: fixed; top: 0; left: 0; height: 100%; width: 280px; background: var(--bg); z-index: 301; display: flex; flex-direction: column; transform: translateX(-100%); transition: transform .25s ease; box-shadow: 4px 0 20px rgba(0,0,0,.15); }
+.drawer { position: fixed; top: 0; left: 0; height: 100%; width: 280px; background: var(--green); color: white; z-index: 301; display: flex; flex-direction: column; transform: translateX(-100%); transition: transform .25s ease; box-shadow: 4px 0 20px rgba(0,0,0,.15); }
 .drawer--open { transform: translateX(0); }
-.drawer-close-btn { position: absolute; top: 14px; right: 14px; background: none; border: none; font-size: 18px; color: var(--text-muted); cursor: pointer; line-height: 1; padding: 4px; }
-.drawer-close-btn:active { color: var(--text); }
-.drawer-header { padding: 24px 20px 20px; font-size: 20px; font-weight: 900; color: var(--green); }
-.drawer-divider { height: 1px; background: var(--border); margin: 0; }
+.drawer-close-btn { position: absolute; top: 14px; right: 14px; background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.2); border-radius: 6px; font-size: 18px; color: white; cursor: pointer; line-height: 1; padding: 4px; }
+.drawer-close-btn:active { background: rgba(255,255,255,.25); }
+.drawer-header { padding: 24px 20px 20px; font-size: 20px; font-weight: 800; color: white; }
+.drawer-divider { height: 1px; background: rgba(255,255,255,.2); margin: 0; }
 .drawer-section { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; gap: 12px; }
 .drawer-section-label { font-size: 15px; font-weight: 600; color: var(--text); white-space: nowrap; }
 .drawer-section .budget-wrap { font-size: 17px; font-weight: 700; }
 .drawer-section .budget-wrap input { font-size: 17px; font-weight: 700; width: 80px; }
-.drawer-menu-row { width: 100%; background: none; border: none; text-align: left; padding: 16px 20px; font-size: 15px; font-weight: 600; color: var(--text); cursor: pointer; border-bottom: 1px solid var(--border); display: flex; align-items: center; }
-.drawer-menu-row:active { background: var(--green-pale); }
-.drawer-signout-row { color: #C62828; border-bottom: none; }
-.drawer-row-icon { display: inline-flex; align-items: center; margin-right: 10px; flex-shrink: 0; }
+.drawer-menu-row { width: 100%; background: none; border: none; text-align: left; padding: 16px 20px; font-size: 15px; font-weight: 600; color: rgba(255,255,255,.9); cursor: pointer; border-bottom: 1px solid rgba(255,255,255,.15); display: flex; align-items: center; }
+.drawer-menu-row:active { background: rgba(255,255,255,.1); }
+.drawer-signout-row { color: rgba(255,255,255,.7); border-bottom: none; }
+.drawer-row-icon { display: inline-flex; align-items: center; margin-right: 10px; flex-shrink: 0; color: rgba(255,255,255,.7); }
+.drawer-budget-amount { color: #C8922A; }
+.drawer-home-btn { background: none; border: none; color: white; font-size: 18px; font-weight: 800; cursor: pointer; padding: 0; text-align: left; }
 
 /* ── Saved / Money Hub view ── */
 .saved-view { padding: 0 0 40px; }
@@ -399,6 +401,10 @@ h1 { font-size: 17px; font-weight: 800; color: var(--text); }
 .cat-card-count { font-size: 12px; color: var(--text-muted); }
 .cat-card-freshness { display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; white-space: nowrap; }
 .cat-card-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; display: inline-block; }
+
+/* ── Save / Report buttons ── */
+.save-heart-btn { border: none; background: transparent; font-size: 13px; font-weight: 600; padding: 4px 8px; cursor: pointer; }
+.save-heart-btn-saved { color: var(--green); font-weight: 700; background: var(--green-pale); padding: 4px 10px; border-radius: 20px; border: none; font-size: 13px; }
 
 /* ── Price intelligence ── */
 .price-intel-row { margin-top: 6px; display: flex; flex-direction: column; gap: 4px; }

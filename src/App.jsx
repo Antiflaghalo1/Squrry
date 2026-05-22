@@ -413,6 +413,7 @@ export default function App() {
         onMyScans={() => { setShowDrawer(false); navTo('recent') }}
         onHelp={() => { setShowDrawer(false); setShowTutorial(true) }}
         onSignOut={() => { setShowDrawer(false); handleSignOut() }}
+        onHome={() => { setShowDrawer(false); navTo('home') }}
       />
 
       {showTutorial && (
