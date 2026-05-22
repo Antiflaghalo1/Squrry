@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { MapPin, Clock } from 'lucide-react'
+import { MapPin, Clock, TrendingUp, Package } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { getAllStores } from '../data/storeService'
 
@@ -11,13 +11,24 @@ function haversine(lat1, lng1, lat2, lng2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 }
 
-export default function HomeView({ user, firstName, budget, onBudgetNav, onSeeAll }) {
+export default function HomeView({ user, firstName, budget, onBudgetNav, onSeeAll, onStoreSelect }) {
   const [stores, setStores] = useState([])
   const [recentProducts, setRecentProducts] = useState([])
   const [loading, setLoading] = useState(true)
   const [deals, setDeals] = useState([])
+  const [pulseStats, setPulseStats] = useState({ prices: null, products: null })
 
   const budgetNum = parseFloat(budget) || 0
+
+  useEffect(() => {
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+    Promise.all([
+      supabase.from('observations').select('*', { count: 'exact', head: true }).gte('created_at', sevenDaysAgo),
+      supabase.from('products').select('*', { count: 'exact', head: true }),
+    ]).then(([{ count: prices }, { count: products }]) => {
+      setPulseStats({ prices, products })
+    })
+  }, [])
 
   useEffect(() => {
     getAllStores().then(rawStores => {
@@ -119,6 +130,20 @@ export default function HomeView({ user, firstName, budget, onBudgetNav, onSeeAl
         )}
       </div>
 
+      {/* Community pulse bar */}
+      {(pulseStats.prices !== null || pulseStats.products !== null) && (
+        <div className="community-pulse-bar">
+          <div className="pulse-stat">
+            <TrendingUp size={14} />
+            {pulseStats.prices ?? '…'} prices this week
+          </div>
+          <div className="pulse-stat">
+            <Package size={14} />
+            {pulseStats.products ?? '…'} products tracked
+          </div>
+        </div>
+      )}
+
       {/* Section 2 — Stores Near You */}
       <div className="home-section">
         <div className="home-section-header">
@@ -131,7 +156,7 @@ export default function HomeView({ user, firstName, budget, onBudgetNav, onSeeAl
               key={store.id}
               className="home-store-card"
               style={{ '--store-color': store.color }}
-              onClick={() => console.log('store:', store.id)}
+              onClick={() => onStoreSelect?.(store)}
             >
               <div className="home-store-name">{store.name}</div>
               <div className="home-store-loc">{store.location}</div>

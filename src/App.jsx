@@ -14,6 +14,8 @@ import BudgetView from './components/BudgetView'
 import CategoriesView from './components/CategoriesView'
 import SavedItemsView from './components/SavedItemsView'
 import HomeView from './components/HomeView'
+import SearchView from './components/SearchView'
+import StoreView from './components/StoreView'
 import EditProfileView from './components/EditProfileView'
 import TutorialOverlay from './components/TutorialOverlay'
 import { supabase } from './lib/supabase'
@@ -42,6 +44,7 @@ export default function App() {
   const [showProfileMenu, setShowProfileMenu] = useState(false)
   const [showDrawer, setShowDrawer] = useState(false)
   const [showTutorial, setShowTutorial] = useState(!localStorage.getItem('bs_tutorial_seen'))
+  const [selectedStore, setSelectedStore] = useState(null)
   const viewStack = useRef([])
   const userRef = useRef(null)
 
@@ -158,6 +161,15 @@ export default function App() {
   const budgetNum = parseFloat(budget) || 0
   const overBudget = results && budgetNum > 0 && results.grandTotal > budgetNum
 
+  const worstCaseTotal = resultSource === 'saved' && results?.priceMap
+    ? Array.from(selectedSavedItems).reduce((sum, upc) => {
+        const storePrices = results.priceMap[String(upc)]
+        if (!storePrices || Object.keys(storePrices).length === 0) return sum
+        return sum + Math.max(...Object.values(storePrices))
+      }, 0)
+    : 0
+  const savedAmount = worstCaseTotal - (results?.grandTotal ?? 0)
+
   // User initial for header avatar
   const userInitial = user?.email?.[0]?.toUpperCase()
 
@@ -197,7 +209,7 @@ export default function App() {
             BasketSplit <span className="topbar-wordmark-emoji">🛒</span>
           </div>
           <div className="topbar-actions">
-            <button className="topbar-search-btn" onClick={() => console.log('search')}>
+            <button className="topbar-search-btn" onClick={() => navTo('search')}>
               <Search size={20} />
             </button>
             <div className="topbar-cart-wrap">
@@ -225,9 +237,12 @@ export default function App() {
           budget={budget}
           onBudgetNav={() => navTo('budget')}
           onSeeAll={() => navTo('recent')}
+          onStoreSelect={(store) => { setSelectedStore(store); navTo('store') }}
         />
       )}
 
+      {view === 'search' && <SearchView onBack={goBack} />}
+      {view === 'store' && <StoreView store={selectedStore} onBack={goBack} />}
       {view === 'scan' && <ScanView onBack={goBack} user={user} />}
       {view === 'recent' && <RecentScansView onBack={goBack} userId={user?.id} />}
       {view === 'auth' && <AuthView onBack={goBack} onLegal={(type) => navTo(type)} />}
@@ -297,6 +312,22 @@ export default function App() {
               {results.storeBreakdown.length} stop{results.storeBreakdown.length !== 1 ? 's' : ''}
             </div>
           </div>
+
+          {resultSource === 'saved' && (savedAmount > 0 || results.unmatched?.length > 0) && (
+            <div className="savings-summary-card">
+              {savedAmount > 0 && (
+                <>
+                  <div className="savings-amount">🎉 You saved ${savedAmount.toFixed(2)}</div>
+                  <div className="savings-sub">vs buying everything at one store</div>
+                </>
+              )}
+              {results.unmatched?.length > 0 && (
+                <p className="savings-unmatched">
+                  {results.unmatched.length} item{results.unmatched.length !== 1 ? 's' : ''} had no price data yet — scan them to unlock more savings!
+                </p>
+              )}
+            </div>
+          )}
 
           {results.storeBreakdown.map(({ store, items, subtotal }) => (
             <div key={store.id} className="store-card" style={{ '--accent': store.color }}>

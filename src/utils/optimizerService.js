@@ -86,5 +86,5 @@ export async function optimizeFromSupabase(selectedUpcs, stores) {
   const storeBreakdown = Object.values(storeMap).sort((a, b) => b.subtotal - a.subtotal)
   const grandTotal = storeBreakdown.reduce((sum, r) => sum + r.subtotal, 0)
 
-  return { grandTotal, storeBreakdown, unmatched, flippSaleItems }
+  return { grandTotal, storeBreakdown, unmatched, flippSaleItems, priceMap }
 }

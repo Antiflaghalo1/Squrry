@@ -460,3 +460,43 @@ h1 { font-size: 20px; font-weight: 800; }
 .tutorial-dot-active { background: var(--green); transform: scale(1.3); }
 
 .tutorial-cta { width: calc(100% - 40px); max-width: 440px; }
+
+/* ── Search view ── */
+.search-view { padding: 18px 18px 100px; }
+.search-input-wrap { position: relative; display: flex; align-items: center; margin-bottom: 20px; }
+.search-icon { position: absolute; left: 14px; color: var(--text-muted); pointer-events: none; }
+.search-main-input { padding-left: 44px; font-size: 18px; }
+.search-hint { text-align: center; color: var(--text-muted); font-size: 15px; padding: 60px 20px; }
+.search-status { text-align: center; color: var(--text-muted); font-size: 14px; font-style: italic; padding: 40px 0; }
+.search-no-results { text-align: center; color: var(--text-muted); font-size: 14px; padding: 40px 20px; }
+.search-results { display: flex; flex-direction: column; gap: 24px; }
+.search-section { display: flex; flex-direction: column; gap: 10px; }
+.search-section-title { font-size: 13px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; }
+.search-deal-price { font-size: 16px; font-weight: 800; color: var(--green); margin-top: 2px; }
+.search-sale-badge { margin-top: 4px; display: inline-block; background: var(--orange); }
+
+/* ── Store view ── */
+.store-view { padding: 18px 18px 100px; }
+.store-view-header { border-left: 5px solid var(--green); padding: 12px 14px; background: white; border-radius: 10px; margin-bottom: 24px; box-shadow: 0 1px 4px rgba(0,0,0,.07); }
+.store-view-name { font-size: 22px; font-weight: 900; color: var(--green); }
+.store-view-loc { font-size: 13px; color: var(--text-muted); margin-top: 3px; }
+.store-view-section { margin-bottom: 28px; }
+.store-view-section-title { font-size: 13px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 12px; }
+.store-view-muted { font-size: 14px; color: var(--text-muted); padding: 8px 0; }
+.store-deals-list { display: flex; flex-direction: column; gap: 0; background: white; border: 1.5px solid var(--border); border-radius: 12px; overflow: hidden; }
+.store-deal-row { display: flex; align-items: center; justify-content: space-between; padding: 11px 14px; border-bottom: 1px solid var(--border); }
+.store-deal-row:last-child { border-bottom: none; }
+.store-deal-name { font-size: 14px; font-weight: 500; flex: 1; padding-right: 10px; }
+.store-deal-right { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.store-deal-price { font-size: 15px; font-weight: 800; color: var(--green); white-space: nowrap; }
+.store-deal-type { font-size: 11px; color: var(--text-muted); }
+
+/* ── Community pulse bar ── */
+.community-pulse-bar { display: flex; gap: 12px; background: white; border-radius: 20px; padding: 8px 16px; border: 1.5px solid var(--border); width: fit-content; }
+.pulse-stat { display: flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 600; color: var(--green); }
+
+/* ── Savings summary card ── */
+.savings-summary-card { background: white; border-radius: 14px; padding: 20px; text-align: center; margin: 12px 18px; border: 1.5px solid var(--green); box-shadow: 0 2px 8px rgba(74,124,89,.12); display: flex; flex-direction: column; gap: 6px; }
+.savings-amount { font-size: 22px; font-weight: 900; color: var(--green); }
+.savings-sub { font-size: 13px; color: var(--text-muted); }
+.savings-unmatched { font-size: 13px; color: var(--text-muted); margin-top: 4px; line-height: 1.5; }
