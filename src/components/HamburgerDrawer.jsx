@@ -1,6 +1,6 @@
-import { Wallet, Package, FileText, Shield, LogOut, HelpCircle } from 'lucide-react'
+import { Wallet, Package, FileText, Shield, LogOut, HelpCircle, Sparkles } from 'lucide-react'
 
-export default function HamburgerDrawer({ isOpen, onClose, budget, avatarUrl, firstName, lastName, userEmail, onBudgetNav, onLegal, onMyScans, onHelp, onSignOut, onHome }) {
+export default function HamburgerDrawer({ isOpen, onClose, budget, avatarUrl, firstName, lastName, userEmail, onBudgetNav, onLegal, onMyScans, onHelp, onSignOut, onHome, onAI }) {
   const displayName = (firstName || lastName) ? `${firstName} ${lastName}`.trim() : userEmail
   const initial = (firstName || userEmail || '?')[0].toUpperCase()
 
@@ -54,6 +54,10 @@ export default function HamburgerDrawer({ isOpen, onClose, budget, avatarUrl, fi
         <button className="drawer-menu-row" onClick={onHelp}>
           <span className="drawer-row-icon"><HelpCircle size={18} /></span>
           How it works
+        </button>
+        <button className="drawer-menu-row" onClick={onAI}>
+          <span className="drawer-row-icon"><Sparkles size={18} /></span>
+          Ask AI
         </button>
         <button className="drawer-menu-row" onClick={() => onLegal('tos')}>
           <span className="drawer-row-icon"><FileText size={18} /></span>

@@ -18,6 +18,7 @@ import SearchView from './components/SearchView'
 import StoreView from './components/StoreView'
 import EditProfileView from './components/EditProfileView'
 import TutorialOverlay from './components/TutorialOverlay'
+import AIAssistantView from './components/AIAssistantView'
 import { supabase } from './lib/supabase'
 import { getSavedItems, saveItem } from './data/savedItems'
 import { getAllStores } from './data/storeService'
@@ -45,6 +46,7 @@ export default function App() {
   const [showDrawer, setShowDrawer] = useState(false)
   const [showTutorial, setShowTutorial] = useState(!localStorage.getItem('bs_tutorial_seen'))
   const [selectedStore, setSelectedStore] = useState(null)
+  const [aiContext, setAiContext] = useState(null)
   const viewStack = useRef([])
   const userRef = useRef(null)
 
@@ -113,6 +115,71 @@ export default function App() {
       next.has(itemId) ? next.delete(itemId) : next.add(itemId)
       return next
     })
+  }
+
+  async function buildAIContext(userId) {
+    const [profileRes, savedRes, storesRes] = await Promise.all([
+      supabase.from('profiles').select('first_name, budget').eq('id', userId).single(),
+      supabase.from('saved_items').select('upc, name, normalized_category').eq('user_id', userId),
+      getAllStores()
+    ])
+
+    const savedItems = savedRes.data || []
+    const upcs = savedItems.map(i => i.upc).filter(Boolean)
+
+    let pricesData = []
+    if (upcs.length > 0) {
+      const { data } = await supabase
+        .from('observations')
+        .select('barcode, store_id, price')
+        .in('barcode', upcs)
+        .eq('voided', false)
+        .gt('price', 0)
+        .lt('price', 500)
+      pricesData = data || []
+    }
+
+    const today = new Date().toISOString().split('T')[0]
+    const { data: flippData } = await supabase
+      .from('flipp_observations')
+      .select('product_name, store_id, price, valid_to')
+      .gt('price', 0)
+      .or(`valid_to.is.null,valid_to.gte.${today}`)
+      .order('price', { ascending: true })
+      .limit(50)
+
+    const priceMap = {}
+    for (const obs of pricesData) {
+      if (!priceMap[obs.barcode]) priceMap[obs.barcode] = []
+      const store = storesRes.find(s => s.id === obs.store_id)
+      priceMap[obs.barcode].push({
+        storeName: store?.name || obs.store_id,
+        price: parseFloat(obs.price).toFixed(2)
+      })
+    }
+
+    const enrichedItems = savedItems.map(item => ({
+      name: item.name,
+      normalized_category: item.normalized_category,
+      prices: priceMap[item.upc] || []
+    }))
+
+    const weeklyDeals = (flippData || []).map(d => {
+      const store = storesRes.find(s => s.id === d.store_id)
+      return {
+        productName: d.product_name,
+        storeName: store?.name || d.store_id,
+        price: parseFloat(d.price).toFixed(2)
+      }
+    })
+
+    return {
+      userName: profileRes.data?.first_name || 'there',
+      budget: profileRes.data?.budget || 0,
+      savedItems: enrichedItems,
+      weeklyDeals,
+      stores: storesRes
+    }
   }
 
   const optimize = () => {
@@ -389,6 +456,9 @@ export default function App() {
       {view === 'budget' && (
         <BudgetView user={user} budget={budget} onBack={goBack} onBudgetSave={handleBudgetSave} />
       )}
+      {view === 'ai' && (
+        <AIAssistantView aiContext={aiContext} onBack={goBack} user={user} />
+      )}
 
       {showProfileMenu && user && (
         <ProfileMenu
@@ -414,6 +484,7 @@ export default function App() {
         onHelp={() => { setShowDrawer(false); setShowTutorial(true) }}
         onSignOut={() => { setShowDrawer(false); handleSignOut() }}
         onHome={() => { setShowDrawer(false); navTo('home') }}
+        onAI={() => { setShowDrawer(false); navTo('ai'); buildAIContext(user.id).then(ctx => setAiContext(ctx)) }}
       />
 
       {showTutorial && (
@@ -423,7 +494,7 @@ export default function App() {
         }} />
       )}
 
-      {view !== 'scan' && view !== 'auth' && view !== 'tos' && view !== 'privacy' && (
+      {view !== 'scan' && view !== 'auth' && view !== 'tos' && view !== 'privacy' && view !== 'ai' && (
         <nav className="bottom-nav">
           <button className={`bottom-nav-tab${view === 'home' ? ' active' : ''}`} onClick={() => navTo('home')}>
             <Home size={22} />
