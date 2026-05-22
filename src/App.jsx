@@ -494,7 +494,7 @@ export default function App() {
         }} />
       )}
 
-      {view !== 'scan' && view !== 'auth' && view !== 'tos' && view !== 'privacy' && view !== 'ai' && (
+      {view !== 'scan' && view !== 'auth' && view !== 'tos' && view !== 'privacy' && (
         <nav className="bottom-nav">
           <button className={`bottom-nav-tab${view === 'home' ? ' active' : ''}`} onClick={() => navTo('home')}>
             <Home size={22} />
