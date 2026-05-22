@@ -145,6 +145,12 @@ export default function App() {
     setSavedUpcs(prev => new Set([...prev, upc]))
   }
 
+  function handleRemoveItem(upc) {
+    setSavedItems(prev => prev.filter(i => String(i.upc) !== upc))
+    setSavedUpcs(prev => { const next = new Set(prev); next.delete(upc); return next })
+    setSelectedSavedItems(prev => { const next = new Set(prev); next.delete(upc); return next })
+  }
+
   async function handleOptimizeSaved() {
     const res = await optimizeFromSupabase(Array.from(selectedSavedItems), stores)
     setResults(res)
@@ -374,6 +380,8 @@ export default function App() {
           setSelectedSavedItems={setSelectedSavedItems}
           onOptimize={handleOptimizeSaved}
           onBrowse={() => navTo('categories')}
+          userId={user?.id}
+          onItemRemoved={handleRemoveItem}
         />
       )}
       {view === 'profile' && (

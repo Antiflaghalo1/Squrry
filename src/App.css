@@ -324,6 +324,8 @@ h1 { font-size: 20px; font-weight: 800; }
 .saved-signout-section { padding: 0 20px; }
 .saved-signout-btn { width: 100%; background: none; border: 1.5px solid var(--border); border-radius: 12px; padding: 14px; font-size: 16px; font-weight: 700; color: var(--text-muted); cursor: pointer; }
 .saved-signout-btn:active { background: var(--border); }
+.saved-row-wrap { position: relative; overflow: hidden; }
+.saved-delete-reveal { position: absolute; right: 0; top: 0; bottom: 0; width: 80px; background: #C62828; display: flex; align-items: center; justify-content: center; color: white; font-size: 13px; font-weight: 600; }
 
 /* ── Budget full-page view ── */
 @keyframes budgetEntrance {
@@ -369,11 +371,17 @@ h1 { font-size: 20px; font-weight: 800; }
 .categories-title { font-size: 24px; font-weight: 900; color: var(--green); margin: 0 0 4px; }
 .categories-sub { font-size: 13px; color: var(--text-muted); margin: 0; }
 .categories-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.cat-card { position: relative; background: white; border: 1.5px solid var(--border); border-radius: 14px; padding: 14px 12px 12px; cursor: pointer; overflow: hidden; min-height: 90px; display: flex; flex-direction: column; justify-content: flex-end; text-align: left; }
+.cat-card { background: white; border: 1.5px solid var(--border); border-radius: 12px; overflow: hidden; cursor: pointer; text-align: left; display: flex; flex-direction: column; padding: 0; width: 100%; }
 .cat-card:active { opacity: .82; }
-.cat-card-bg { position: absolute; inset: 0; background-size: cover; background-position: center; opacity: .18; }
-.cat-card-name { font-size: 14px; font-weight: 800; color: var(--text); position: relative; z-index: 1; line-height: 1.3; margin-bottom: 4px; }
-.cat-card-count { font-size: 12px; color: var(--text-muted); font-weight: 600; position: relative; z-index: 1; }
+.cat-card-top { height: 90px; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.cat-card-emoji-fade { position: absolute; font-size: 52px; opacity: 0.15; pointer-events: none; user-select: none; }
+.cat-card-emoji-main { font-size: 36px; position: relative; z-index: 1; }
+.cat-card-body { padding: 10px 12px 12px; }
+.cat-card-name { font-size: 14px; font-weight: 600; color: var(--text); line-height: 1.3; margin-bottom: 6px; }
+.cat-card-meta { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
+.cat-card-count { font-size: 12px; color: var(--text-muted); }
+.cat-card-freshness { display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.cat-card-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; display: inline-block; }
 
 /* ── Price intelligence ── */
 .price-intel-row { margin-top: 6px; display: flex; flex-direction: column; gap: 4px; }

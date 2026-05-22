@@ -6,6 +6,7 @@ export default function StoreView({ store, onBack }) {
   const [community, setCommunity] = useState([])
   const [dealsLoading, setDealsLoading] = useState(true)
   const [communityLoading, setCommunityLoading] = useState(true)
+  const [showAllDeals, setShowAllDeals] = useState(false)
 
   useEffect(() => {
     if (!store) return
@@ -24,7 +25,12 @@ export default function StoreView({ store, onBack }) {
       .or(`valid_to.is.null,valid_to.gte.${today}`)
       .order('price', { ascending: true })
       .limit(30)
-    setDeals(data || [])
+    const seen = new Map()
+    for (const row of data || []) {
+      const key = row.product_name.toLowerCase().trim()
+      if (!seen.has(key)) seen.set(key, row)
+    }
+    setDeals([...seen.values()])
     setDealsLoading(false)
   }
 
@@ -83,17 +89,27 @@ export default function StoreView({ store, onBack }) {
         ) : deals.length === 0 ? (
           <p className="store-view-muted">No circular data this week</p>
         ) : (
-          <div className="store-deals-list">
-            {deals.map((deal, i) => (
-              <div key={i} className="store-deal-row">
-                <div className="store-deal-name">{deal.product_name}</div>
-                <div className="store-deal-right">
-                  <span className="store-deal-price">${Number(deal.price).toFixed(2)}</span>
-                  {deal.sale_type && <span className="store-deal-type">{deal.sale_type}</span>}
+          <>
+            <div className="store-deals-list">
+              {(showAllDeals ? deals : deals.slice(0, 5)).map((deal, i) => (
+                <div key={i} className="store-deal-row">
+                  <div className="store-deal-name">{deal.product_name}</div>
+                  <div className="store-deal-right">
+                    <span className="store-deal-price">${Number(deal.price).toFixed(2)}</span>
+                    {deal.sale_type && <span className="store-deal-type">{deal.sale_type}</span>}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+            {deals.length > 5 && (
+              <button
+                onClick={() => setShowAllDeals(v => !v)}
+                style={{ background: 'transparent', border: 'none', color: 'var(--green)', fontSize: 13, fontWeight: 700, cursor: 'pointer', padding: '8px 0 0' }}
+              >
+                {showAllDeals ? 'Show less ↑' : `See all ${deals.length} deals →`}
+              </button>
+            )}
+          </>
         )}
       </div>
 

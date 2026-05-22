@@ -4,6 +4,32 @@ import { getAllStores } from '../data/storeService'
 import { getCustomStores } from '../data/customStores'
 import { saveItem } from '../data/savedItems'
 
+const CAT_META = {
+  'Dairy & Eggs':          { emoji: '🥛', bg: '#E1F5EE', dot: '#1D9E75' },
+  'Meat & Seafood':        { emoji: '🥩', bg: '#FAECE7', dot: '#D85A30' },
+  'Produce':               { emoji: '🥦', bg: '#EAF3DE', dot: '#639922' },
+  'Bakery & Bread':        { emoji: '🥖', bg: '#FAEEDA', dot: '#BA7517' },
+  'Snacks & Candy':        { emoji: '🍿', bg: '#FBEAF0', dot: '#D4537E' },
+  'Beverages':             { emoji: '🧃', bg: '#E6F1FB', dot: '#378ADD' },
+  'Health & Beauty':       { emoji: '💊', bg: '#EEEDFE', dot: '#7F77DD' },
+  'Household & Cleaning':  { emoji: '🧹', bg: '#F1EFE8', dot: '#888780' },
+  'Baby & Kids':           { emoji: '🍼', bg: '#FBEAF0', dot: '#D4537E' },
+  'Breakfast & Cereal':    { emoji: '🥣', bg: '#FAEEDA', dot: '#BA7517' },
+  'Frozen Foods':          { emoji: '🧊', bg: '#E6F1FB', dot: '#378ADD' },
+  'Pantry & Canned':       { emoji: '🥫', bg: '#FAECE7', dot: '#D85A30' },
+  'Miscellaneous':         { emoji: '🛒', bg: '#F1EFE8', dot: '#888780' },
+}
+
+function cardFreshness(products) {
+  if (products.length === 0) return { dot: '#888780', label: 'No scans yet', color: '#888780' }
+  const mostRecent = products[0]?.last_scanned_at
+  if (!mostRecent) return { dot: '#888780', label: 'No scans yet', color: '#888780' }
+  const days = (Date.now() - new Date(mostRecent).getTime()) / 86400000
+  if (days <= 7)  return { dot: '#1D9E75', label: 'Fresh',  color: '#1D9E75' }
+  if (days <= 30) return { dot: '#BA7517', label: 'Aging',  color: '#BA7517' }
+  return { dot: '#888780', label: 'Stale', color: '#888780' }
+}
+
 function timeAgo(ts) {
   const diff = Date.now() - new Date(ts).getTime()
   const mins = Math.floor(diff / 60000)
@@ -244,24 +270,34 @@ export default function CategoriesView({ onBack, userId, savedUpcs = new Set(), 
 
       {!loading && groups.length > 0 && (
         <div className="categories-grid">
-          {groups.map(g => (
-            <button
-              key={g.name}
-              className="cat-card"
-              onClick={() => setExpanded(g.name)}
-            >
-              {g.thumbnail && (
-                <div
-                  className="cat-card-bg"
-                  style={{ backgroundImage: `url(${g.thumbnail})` }}
-                />
-              )}
-              <div className="cat-card-name">{g.name}</div>
-              <div className="cat-card-count">
-                {g.products.length} item{g.products.length !== 1 ? 's' : ''}
-              </div>
-            </button>
-          ))}
+          {groups.map(g => {
+            const meta = CAT_META[g.name] || CAT_META['Miscellaneous']
+            const fresh = cardFreshness(g.products)
+            return (
+              <button
+                key={g.name}
+                className="cat-card"
+                onClick={() => setExpanded(g.name)}
+              >
+                <div className="cat-card-top" style={{ background: meta.bg }}>
+                  <span className="cat-card-emoji-fade">{meta.emoji}</span>
+                  <span className="cat-card-emoji-main">{meta.emoji}</span>
+                </div>
+                <div className="cat-card-body">
+                  <div className="cat-card-name">{g.name}</div>
+                  <div className="cat-card-meta">
+                    <span className="cat-card-count">
+                      {g.products.length} item{g.products.length !== 1 ? 's' : ''}
+                    </span>
+                    <span className="cat-card-freshness" style={{ color: fresh.color }}>
+                      <span className="cat-card-dot" style={{ background: fresh.dot }} />
+                      {fresh.label}
+                    </span>
+                  </div>
+                </div>
+              </button>
+            )
+          })}
         </div>
       )}
     </div>

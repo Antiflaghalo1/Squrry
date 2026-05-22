@@ -1,5 +1,75 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { removeSavedItem } from '../data/savedItems'
+
+function SwipableRow({ item, isSelected, minPrice, pricesLoading, onToggle, onRemove }) {
+  const rowRef = useRef(null)
+  const startXRef = useRef(0)
+  const deltaRef = useRef(0)
+
+  function handleTouchStart(e) {
+    startXRef.current = e.touches[0].clientX
+    deltaRef.current = 0
+    if (rowRef.current) rowRef.current.style.transition = 'none'
+  }
+
+  function handleTouchMove(e) {
+    const dx = e.touches[0].clientX - startXRef.current
+    if (dx < -10) {
+      const clamped = Math.max(dx, -80)
+      deltaRef.current = clamped
+      if (rowRef.current) rowRef.current.style.transform = `translateX(${clamped}px)`
+    }
+  }
+
+  function handleTouchEnd() {
+    if (rowRef.current) rowRef.current.style.transition = 'transform 0.2s ease'
+    if (deltaRef.current < -60) {
+      const confirmed = window.confirm(`Remove ${item.name} from saved?`)
+      if (confirmed) {
+        onRemove()
+      } else {
+        if (rowRef.current) rowRef.current.style.transform = 'translateX(0)'
+      }
+    } else {
+      if (rowRef.current) rowRef.current.style.transform = 'translateX(0)'
+    }
+  }
+
+  return (
+    <div className="saved-row-wrap">
+      <div className="saved-delete-reveal">Remove</div>
+      <div
+        ref={rowRef}
+        className={`item-row${isSelected ? ' selected' : ''}`}
+        onClick={onToggle}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        {item.image_url ? (
+          <img src={item.image_url} alt={item.name} className="saved-item-thumb" />
+        ) : (
+          <div className="saved-item-thumb saved-item-thumb-placeholder">🛒</div>
+        )}
+        <div className="item-name">
+          {item.name}
+          {item.normalized_category && (
+            <div className="saved-item-cat">{item.normalized_category}</div>
+          )}
+        </div>
+        <div className="item-low">
+          {pricesLoading
+            ? '…'
+            : minPrice != null
+              ? `from $${minPrice.toFixed(2)}`
+              : 'No prices yet — scan it! 📷'}
+        </div>
+        <div className="item-check">{isSelected ? '✓' : '+'}</div>
+      </div>
+    </div>
+  )
+}
 
 export default function SavedItemsView({
   savedItems,
@@ -8,6 +78,8 @@ export default function SavedItemsView({
   setSelectedSavedItems,
   onOptimize,
   onBrowse,
+  userId,
+  onItemRemoved,
 }) {
   const [bestPrices, setBestPrices] = useState({})
   const [pricesLoading, setPricesLoading] = useState(false)
@@ -41,6 +113,11 @@ export default function SavedItemsView({
     })
   }
 
+  async function handleRemove(item) {
+    await removeSavedItem(userId, item.upc)
+    onItemRemoved(String(item.upc))
+  }
+
   if (savedItems.length === 0) {
     return (
       <div className="saved-items-view">
@@ -66,34 +143,16 @@ export default function SavedItemsView({
 
       {savedItems.map(item => {
         const upc = String(item.upc)
-        const isSelected = selectedSavedItems.has(upc)
-        const minPrice = bestPrices[upc]
         return (
-          <div
+          <SwipableRow
             key={upc}
-            className={`item-row${isSelected ? ' selected' : ''}`}
-            onClick={() => toggleItem(upc)}
-          >
-            {item.image_url ? (
-              <img src={item.image_url} alt={item.name} className="saved-item-thumb" />
-            ) : (
-              <div className="saved-item-thumb saved-item-thumb-placeholder">🛒</div>
-            )}
-            <div className="item-name">
-              {item.name}
-              {item.normalized_category && (
-                <div className="saved-item-cat">{item.normalized_category}</div>
-              )}
-            </div>
-            <div className="item-low">
-              {pricesLoading
-                ? '…'
-                : minPrice != null
-                  ? `from $${minPrice.toFixed(2)}`
-                  : 'No prices yet — scan it! 📷'}
-            </div>
-            <div className="item-check">{isSelected ? '✓' : '+'}</div>
-          </div>
+            item={item}
+            isSelected={selectedSavedItems.has(upc)}
+            minPrice={bestPrices[upc]}
+            pricesLoading={pricesLoading}
+            onToggle={() => toggleItem(upc)}
+            onRemove={() => handleRemove(item)}
+          />
         )
       })}
 
