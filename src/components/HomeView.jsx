@@ -3,6 +3,14 @@ import { MapPin, Clock } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { getAllStores } from '../data/storeService'
 
+function haversine(lat1, lng1, lat2, lng2) {
+  const R = 6371000, dLat = (lat2 - lat1) * Math.PI / 180,
+    dLng = (lng2 - lng1) * Math.PI / 180,
+    a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) *
+      Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
 export default function HomeView({ user, firstName, budget, onBudgetNav, onSeeAll }) {
   const [stores, setStores] = useState([])
   const [recentProducts, setRecentProducts] = useState([])
@@ -11,7 +19,19 @@ export default function HomeView({ user, firstName, budget, onBudgetNav, onSeeAl
   const budgetNum = parseFloat(budget) || 0
 
   useEffect(() => {
-    getAllStores().then(setStores)
+    getAllStores().then(rawStores => {
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          const { latitude: lat, longitude: lng } = pos.coords
+          const withCoords = rawStores.filter(s => s.lat != null && s.lng != null)
+          const noCoords = rawStores.filter(s => s.lat == null || s.lng == null)
+          withCoords.sort((a, b) => haversine(lat, lng, a.lat, a.lng) - haversine(lat, lng, b.lat, b.lng))
+          setStores([...withCoords, ...noCoords])
+        },
+        () => setStores(rawStores),
+        { timeout: 8000 }
+      )
+    })
     loadRecent()
   }, [])
 

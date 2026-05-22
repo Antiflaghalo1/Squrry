@@ -14,6 +14,7 @@ import BudgetView from './components/BudgetView'
 import CategoriesView from './components/CategoriesView'
 import SavedItemsView from './components/SavedItemsView'
 import HomeView from './components/HomeView'
+import EditProfileView from './components/EditProfileView'
 import TutorialOverlay from './components/TutorialOverlay'
 import { supabase } from './lib/supabase'
 import { getSavedItems, saveItem } from './data/savedItems'
@@ -125,8 +126,9 @@ export default function App() {
     )
     if (uploadError) throw uploadError
     const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(user.id + '.jpg')
-    await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', user.id)
-    setAvatarUrl(publicUrl)
+    const bustUrl = publicUrl + '?t=' + Date.now()
+    await supabase.from('profiles').update({ avatar_url: bustUrl }).eq('id', user.id)
+    setAvatarUrl(bustUrl)
   }
 
   async function handleBudgetSave(newValue) {
@@ -208,7 +210,7 @@ export default function App() {
             </div>
             <button className="user-avatar-btn" onClick={() => navTo('profile')}>
               {avatarUrl
-                ? <img src={avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ? <img src={avatarUrl} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
                 : userInitial
               }
             </button>
@@ -339,7 +341,10 @@ export default function App() {
         />
       )}
       {view === 'profile' && (
-        <ProfileView user={user} firstName={firstName} lastName={lastName} avatarUrl={avatarUrl} onAvatarUpload={handleAvatarUpload} onSignOut={handleSignOut} onMyScans={() => navTo('recent')} />
+        <ProfileView user={user} firstName={firstName} lastName={lastName} avatarUrl={avatarUrl} onAvatarUpload={handleAvatarUpload} onSignOut={handleSignOut} onMyScans={() => navTo('recent')} onEditProfile={() => navTo('editprofile')} />
+      )}
+      {view === 'editprofile' && (
+        <EditProfileView user={user} firstName={firstName} lastName={lastName} onBack={goBack} onSave={(f, l) => { setFirstName(f); setLastName(l) }} />
       )}
       {view === 'budget' && (
         <BudgetView user={user} budget={budget} onBack={goBack} onBudgetSave={handleBudgetSave} />

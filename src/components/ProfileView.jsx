@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Package } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
-export default function ProfileView({ user, firstName, lastName, avatarUrl, onAvatarUpload, onSignOut, onMyScans }) {
+export default function ProfileView({ user, firstName, lastName, avatarUrl, onAvatarUpload, onSignOut, onMyScans, onEditProfile }) {
   const [count, setCount] = useState(null)
   const [uploading, setUploading] = useState(false)
   const [uploadSaved, setUploadSaved] = useState(false)
@@ -37,7 +37,7 @@ export default function ProfileView({ user, firstName, lastName, avatarUrl, onAv
     <div className="profile-view">
       <div className="avatar-circle">
         {avatarUrl
-          ? <img src={avatarUrl} alt="Profile photo" />
+          ? <img src={avatarUrl} alt="Profile photo" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%', display: 'block' }} />
           : userInitial
         }
       </div>
@@ -66,6 +66,7 @@ export default function ProfileView({ user, firstName, lastName, avatarUrl, onAv
       <button
         type="button"
         style={{ display: 'block', margin: '6px auto 0', background: 'none', border: 'none', padding: 0, color: 'var(--text-muted)', fontSize: 13, cursor: 'pointer', textDecoration: 'underline' }}
+        onClick={onEditProfile}
       >
         Edit profile
       </button>
