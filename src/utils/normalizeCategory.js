@@ -10,15 +10,22 @@ const RULES = [
   ['Household & Cleaning', ['household', 'cleaning', 'detergent', 'soap', 'bleach', 'paper', 'trash', 'laundry', 'dish', 'sponge', 'mop', 'hardware', 'lubricant', 'tool', 'building']],
   ['Health & Beauty', ['health', 'beauty', 'vitamin', 'supplement', 'medicine', 'personal care', 'cosmetic', 'skin', 'hair', 'dental', 'deodorant', 'first aid', 'bandage', 'pharmacy']],
   ['Frozen Foods', ['frozen', 'ice cream', 'freezer']],
-  ['Baby & Kids', ['baby', 'infant', 'toddler', 'diaper', 'formula', 'kids']],
+  ['Baby & Kids', ['baby', 'infant', 'toddler', 'diaper', 'formula', 'kids', 'gentlease', 'enfamil', 'similac', 'gerber', 'pampers', 'huggies', 'luvs', 'baby food']],
 ]
 
-export default function normalizeCategory(rawCategory) {
+const BEVERAGES_FP_WORDS = ['bread', 'tomato', 'sauce', 'vegetable', 'fruit', 'grain']
+
+export default function normalizeCategory(rawCategory, productName = '') {
   const stripped = rawCategory.startsWith('en:') ? rawCategory.slice(3).replace(/-/g, ' ') : rawCategory
-  const lower = stripped.toLowerCase()
+  const combined = (stripped + ' ' + productName).toLowerCase()
   for (const [normalized, keywords] of RULES) {
+    if (
+      normalized === 'Beverages' &&
+      combined.includes('plant-based foods and beverages') &&
+      BEVERAGES_FP_WORDS.some(w => combined.includes(w))
+    ) continue
     for (const kw of keywords) {
-      if (lower.includes(kw)) return normalized
+      if (combined.includes(kw)) return normalized
     }
   }
   return 'Miscellaneous'

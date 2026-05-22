@@ -43,7 +43,7 @@ export async function upsertProduct(product) {
     brand: product.brand || null,
     category: product.category || null,
     raw_category: product.category || null,
-    normalized_category: normalizeCategory(product.category || ''),
+    normalized_category: normalizeCategory(product.category || '', product.name || ''),
     quantity: product.quantity || null,
     image_url: product.image_url || null,
     last_scanned_at: new Date().toISOString(),
