@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { AlertTriangle } from 'lucide-react'
+import { AlertTriangle, MinusCircle } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { getAllStores } from '../data/storeService'
 import { getCustomStores } from '../data/customStores'
@@ -254,7 +254,7 @@ export default function RecentScansView({ onBack, userId }) {
                   <div className="saved-action-row">
                     {item.voidableObs && (
                       <button
-                        style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 11, textDecoration: 'underline', cursor: 'pointer', padding: '2px 0' }}
+                        className="save-heart-btn"
                         onClick={async () => {
                           if (!window.confirm('Void this scan? This removes it from price calculations but the product stays in the database.')) return
                           await supabase
@@ -265,7 +265,7 @@ export default function RecentScansView({ onBack, userId }) {
                           loadRecent()
                         }}
                       >
-                        ⊘ Void
+                        <MinusCircle size={13} /> Void
                       </button>
                     )}
                     <button
