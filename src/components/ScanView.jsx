@@ -411,8 +411,20 @@ export default function ScanView({ onBack, user }) {
         <div className="scan-camera-wrap">
           <video ref={videoRef} className="scan-video" playsInline muted autoPlay />
           <div className="scan-overlay">
-            <div className="scan-frame" />
-            <p className="scan-hint">Point at a product barcode</p>
+            <div className="scan-frame-box">
+              <div className="scan-corner-tl" />
+              <div className="scan-corner-tr" />
+              <div className="scan-corner-bl" />
+              <div className="scan-corner-br" />
+              <div className="scan-laser" />
+            </div>
+            <p className="scan-hint">Align barcode within the frame</p>
+            <button
+              className="scan-manual-btn"
+              onClick={() => { setPhase('found'); setBarcode(''); setProductName('') }}
+            >
+              Enter barcode manually →
+            </button>
             {gpsStatus === 'detected' && (
               <p className="scan-gps-badge">📍 {gpsStoreName} detected</p>
             )}
