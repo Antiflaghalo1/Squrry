@@ -19,6 +19,7 @@ const STORE_MAP = {
   'walmart':                'walmart',
   'stater bros':            'stater',
   'stater bros markets':    'stater',
+  'stater bros. markets':   'stater',
   'food 4 less':            'food4less',
   'aldi':                   'aldi',
   'sprouts':                'sprouts',

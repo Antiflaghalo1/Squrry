@@ -5,7 +5,8 @@ export async function optimizeFromSupabase(selectedUpcs, stores) {
     return { grandTotal: 0, storeBreakdown: [], unmatched: [] }
   }
 
-  const [{ data: obsRows }, { data: productRows }] = await Promise.all([
+  const today = new Date().toISOString().split('T')[0]
+  const [{ data: obsRows }, { data: productRows }, { data: flippRows }] = await Promise.all([
     supabase
       .from('observations')
       .select('barcode, store_id, price')
@@ -16,6 +17,13 @@ export async function optimizeFromSupabase(selectedUpcs, stores) {
       .from('products')
       .select('upc, name')
       .in('upc', selectedUpcs),
+    supabase
+      .from('flipp_observations')
+      .select('barcode, store_id, price')
+      .in('barcode', selectedUpcs)
+      .gt('price', 0)
+      .lt('price', 500)
+      .or(`valid_to.is.null,valid_to.gte.${today}`),
   ])
 
   const nameByUpc = {}
@@ -27,6 +35,27 @@ export async function optimizeFromSupabase(selectedUpcs, stores) {
     if (!priceMap[row.barcode]) priceMap[row.barcode] = {}
     const cur = priceMap[row.barcode][row.store_id]
     if (cur == null || row.price < cur) priceMap[row.barcode][row.store_id] = row.price
+  }
+
+  // Build flipp min-price map: { upc: { storeId: minPrice } }
+  const flippMap = {}
+  for (const row of flippRows || []) {
+    if (!flippMap[row.barcode]) flippMap[row.barcode] = {}
+    const cur = flippMap[row.barcode][row.store_id]
+    if (cur == null || row.price < cur) flippMap[row.barcode][row.store_id] = row.price
+  }
+
+  // Merge flipp prices; track where flipp beat community pricing
+  const flippSaleItems = new Set()
+  for (const [barcode, storePrices] of Object.entries(flippMap)) {
+    if (!priceMap[barcode]) priceMap[barcode] = {}
+    for (const [storeId, flippPrice] of Object.entries(storePrices)) {
+      const communityPrice = priceMap[barcode][storeId]
+      if (communityPrice == null || flippPrice < communityPrice) {
+        priceMap[barcode][storeId] = flippPrice
+        flippSaleItems.add(`${barcode}:${storeId}`)
+      }
+    }
   }
 
   const storeMap = {}
@@ -57,5 +86,5 @@ export async function optimizeFromSupabase(selectedUpcs, stores) {
   const storeBreakdown = Object.values(storeMap).sort((a, b) => b.subtotal - a.subtotal)
   const grandTotal = storeBreakdown.reduce((sum, r) => sum + r.subtotal, 0)
 
-  return { grandTotal, storeBreakdown, unmatched }
+  return { grandTotal, storeBreakdown, unmatched, flippSaleItems }
 }
