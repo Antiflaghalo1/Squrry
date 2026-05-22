@@ -190,7 +190,7 @@ export default function App() {
     <div className="app">
       <header className="header">
         <div className="header-inner">
-          <span className="logo">🛒</span>
+          <div className="logo">🛒</div>
           <div className="header-text">
             <h1>BasketSplit</h1>
             <p className="tagline">IE's smartest grocery optimizer</p>
@@ -212,7 +212,8 @@ export default function App() {
             <Menu size={22} />
           </button>
           <div className="topbar-wordmark">
-            BasketSplit <span className="topbar-wordmark-emoji">🛒</span>
+            <div className="logo">🛒</div>
+            BasketSplit
           </div>
           <div className="topbar-actions">
             <button className="topbar-search-btn" onClick={() => navTo('search')}>

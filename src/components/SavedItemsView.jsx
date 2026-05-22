@@ -3,60 +3,97 @@ import { supabase } from '../lib/supabase'
 import { removeSavedItem } from '../data/savedItems'
 
 function SwipableRow({ item, isSelected, minPrice, pricesLoading, onToggle, onRemove }) {
-  const rowRef = useRef(null)
+  const outerRef = useRef(null)
+  const contentRef = useRef(null)
   const startXRef = useRef(0)
-  const startYRef = useRef(0)
-  const deltaRef = useRef(0)
-  const longPressRef = useRef(null)
+  const currentDeltaRef = useRef(0)
+  const isSnappedRef = useRef(false)
+  const suppressNextClickRef = useRef(false)
+
+  function snapBack() {
+    isSnappedRef.current = false
+    if (contentRef.current) {
+      contentRef.current.style.transition = 'transform 0.2s ease'
+      contentRef.current.style.transform = 'translateX(0px)'
+    }
+  }
+
+  function doRemove() {
+    if (!contentRef.current) return
+    contentRef.current.style.transition = 'transform 0.22s ease'
+    contentRef.current.style.transform = 'translateX(-110%)'
+    onRemove()
+    setTimeout(() => {
+      if (!outerRef.current) return
+      const h = outerRef.current.offsetHeight
+      outerRef.current.style.maxHeight = h + 'px'
+      outerRef.current.getBoundingClientRect()
+      outerRef.current.style.transition = 'max-height 0.28s ease, opacity 0.28s ease'
+      outerRef.current.style.maxHeight = '0px'
+      outerRef.current.style.opacity = '0'
+    }, 200)
+    setTimeout(() => {
+      outerRef.current?.remove()
+    }, 500)
+  }
 
   function handleTouchStart(e) {
     startXRef.current = e.touches[0].clientX
-    startYRef.current = e.touches[0].clientY
-    deltaRef.current = 0
-    if (rowRef.current) rowRef.current.style.transition = 'none'
-    longPressRef.current = setTimeout(() => {
-      const confirmed = window.confirm(`Remove ${item.name} from saved?`)
-      if (confirmed) onRemove()
-    }, 600)
+    currentDeltaRef.current = 0
+    if (contentRef.current) contentRef.current.style.transition = 'none'
   }
 
   function handleTouchMove(e) {
     const dx = e.touches[0].clientX - startXRef.current
-    const dy = e.touches[0].clientY - startYRef.current
-    if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
-      clearTimeout(longPressRef.current)
-      longPressRef.current = null
-    }
-    if (dx < -10) {
-      const clamped = Math.max(dx, -80)
-      deltaRef.current = clamped
-      if (rowRef.current) rowRef.current.style.transform = `translateX(${clamped}px)`
-    }
+    if (dx > 0) return
+    const clamped = Math.max(dx, -230)
+    currentDeltaRef.current = clamped
+    if (contentRef.current) contentRef.current.style.transform = `translateX(${clamped}px)`
   }
 
   function handleTouchEnd() {
-    clearTimeout(longPressRef.current)
-    longPressRef.current = null
-    if (rowRef.current) rowRef.current.style.transition = 'transform 0.2s ease'
-    if (deltaRef.current < -60) {
-      const confirmed = window.confirm(`Remove ${item.name} from saved?`)
-      if (confirmed) {
-        onRemove()
-      } else {
-        if (rowRef.current) rowRef.current.style.transform = 'translateX(0)'
+    const delta = currentDeltaRef.current
+    if (delta < -210) {
+      doRemove()
+    } else if (delta < -80) {
+      isSnappedRef.current = true
+      if (contentRef.current) {
+        contentRef.current.style.transition = 'transform 0.2s ease'
+        contentRef.current.style.transform = 'translateX(-80px)'
       }
     } else {
-      if (rowRef.current) rowRef.current.style.transform = 'translateX(0)'
+      if (isSnappedRef.current || Math.abs(delta) > 10) {
+        suppressNextClickRef.current = true
+      }
+      snapBack()
     }
   }
 
+  function handleContentClick() {
+    if (suppressNextClickRef.current) {
+      suppressNextClickRef.current = false
+      return
+    }
+    if (isSnappedRef.current) {
+      snapBack()
+      return
+    }
+    onToggle()
+  }
+
   return (
-    <div className="saved-row-wrap">
-      <div className="saved-delete-reveal">Remove</div>
+    <div ref={outerRef} className="saved-row-wrap">
       <div
-        ref={rowRef}
+        className="saved-delete-reveal"
+        onClick={(e) => { e.stopPropagation(); doRemove() }}
+      >
+        Remove
+      </div>
+      <div
+        ref={contentRef}
         className={`item-row${isSelected ? ' selected' : ''}`}
-        onClick={onToggle}
+        style={{ position: 'relative', zIndex: 1, background: 'white', width: '100%', willChange: 'transform' }}
+        onClick={handleContentClick}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
@@ -169,10 +206,6 @@ export default function SavedItemsView({
           />
         )
       })}
-
-      <p style={{ textAlign: 'center', fontSize: 12, fontStyle: 'italic', color: 'var(--text-muted)', marginTop: 8 }}>
-        Swipe left or hold to remove items
-      </p>
 
       <button
         className={`cta-floating${selectedSavedItems.size > 0 ? ' cta-floating-visible' : ''}`}
