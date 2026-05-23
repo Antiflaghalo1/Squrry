@@ -2,7 +2,6 @@ import { supabase } from '../lib/supabase'
 import normalizeCategory from '../utils/normalizeCategory'
 
 const OBS_KEY = 'basketsplit_observations'
-const WEBHOOK_URL = import.meta.env.VITE_WEBHOOK_URL
 
 export async function addObservation(obs, userId) {
   // 1. Supabase observations (primary)
@@ -23,16 +22,6 @@ export async function addObservation(obs, userId) {
     const prev = JSON.parse(localStorage.getItem(OBS_KEY) || '[]')
     localStorage.setItem(OBS_KEY, JSON.stringify([obs, ...prev]))
   } catch {}
-
-  // 3. Google Sheet (transition backup — removed in 2.3)
-  if (WEBHOOK_URL) {
-    fetch(WEBHOOK_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...obs, device: navigator.userAgent }),
-    }).catch(() => {})
-  }
 }
 
 export async function upsertProduct(product) {

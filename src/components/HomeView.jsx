@@ -30,6 +30,7 @@ export default function HomeView({ user, firstName, budget, onBudgetNav, onSeeAl
   const [loading, setLoading] = useState(true)
   const [deals, setDeals] = useState([])
   const [pulseStats, setPulseStats] = useState({ prices: null, products: null })
+  const [showStoreHint, setShowStoreHint] = useState(!localStorage.getItem('bs_home_hint_seen'))
 
   const budgetNum = parseFloat(budget) || 0
 
@@ -164,6 +165,14 @@ export default function HomeView({ user, firstName, budget, onBudgetNav, onSeeAl
           <div className="home-section-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><MapPin size={16} color="var(--green)" /> Stores Near You</div>
           <div className="home-section-sub">Tap to explore prices</div>
         </div>
+        {showStoreHint && (
+          <div
+            style={{ background: 'var(--green-pale)', color: 'var(--text-muted)', fontSize: 12, padding: '6px 10px', borderRadius: 8, marginBottom: 8, cursor: 'pointer' }}
+            onClick={() => { localStorage.setItem('bs_home_hint_seen', '1'); setShowStoreHint(false) }}
+          >
+            👆 Tap a store to explore prices
+          </div>
+        )}
         <div className="home-stores-scroll">
           {stores.map(store => (
             <div
