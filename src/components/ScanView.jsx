@@ -95,6 +95,7 @@ export default function ScanView({ onBack, user }) {
   const [lastObservation, setLastObservation] = useState(null)
   const [selectedCategory, setSelectedCategory] = useState('')
   const [showReportModal, setShowReportModal] = useState(false)
+  const [savedQueued, setSavedQueued] = useState(false)
 
   // Load stores from Supabase
   useEffect(() => {
@@ -191,6 +192,25 @@ export default function ScanView({ onBack, user }) {
     return () => stopShelfCamera()
   }, [])
 
+  // Seed / refresh local product cache (24-hour TTL)
+  useEffect(() => {
+    async function refreshCache() {
+      const cacheTime = parseInt(localStorage.getItem('squrry_cache_time') || '0')
+      const stale = Date.now() - cacheTime > 24 * 60 * 60 * 1000
+      if (!stale) return
+      try {
+        const { data } = await supabase
+          .from('products')
+          .select('upc, name, brand, normalized_category, image_url, category')
+        if (data) {
+          localStorage.setItem('squrry_product_cache', JSON.stringify(data))
+          localStorage.setItem('squrry_cache_time', Date.now().toString())
+        }
+      } catch {} // offline — keep existing cache
+    }
+    refreshCache()
+  }, [])
+
   async function fetchExistingPrices(code) {
     if (!WEBHOOK_URL) return
     setPricesLoading(true)
@@ -212,44 +232,43 @@ export default function ScanView({ onBack, user }) {
     setPricesLoading(false)
   }
 
-  async function lookUpProduct(code) {
-    setProductBrand('')
-    setProductCategory('')
-    setProductQuantity('')
-    setProductImageUrl('')
-    setRecognizedProduct(null)
-    setLastObservation(null)
+  function getCachedProduct(upc) {
+    try {
+      const cache = JSON.parse(localStorage.getItem('squrry_product_cache') || '[]')
+      return cache.find(p => String(p.upc) === String(upc)) || null
+    } catch { return null }
+  }
 
-    const { data: cached } = await supabase
+  async function runFullLookupWaterfall(code) {
+    setLookingUp(true)
+
+    const { data: dbProduct } = await supabase
       .from('products')
       .select('name, brand, category, normalized_category, quantity, image_url')
       .eq('upc', code)
       .maybeSingle()
 
-    if (cached?.name) {
-      setProductName(cached.name)
-      setProductBrand(cached.brand || '')
-      setProductCategory(cached.category || '')
-      setProductQuantity(cached.quantity || '')
-      setProductImageUrl(cached.image_url || '')
-      setRecognizedProduct({ image_url: cached.image_url || '', normalized_category: cached.normalized_category || '' })
-      const { data: obs } = await supabase
-        .from('observations')
-        .select('store_id, price, created_at')
-        .eq('barcode', code)
-        .eq('voided', false)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-      setLastObservation(obs || null)
+    if (dbProduct?.name) {
+      setProductName(dbProduct.name)
+      setProductBrand(dbProduct.brand || '')
+      setProductCategory(dbProduct.category || '')
+      setProductQuantity(dbProduct.quantity || '')
+      setProductImageUrl(dbProduct.image_url || '')
+      setRecognizedProduct({ image_url: dbProduct.image_url || '', normalized_category: dbProduct.normalized_category || '' })
+      supabase.from('observations').select('store_id, price, created_at')
+        .eq('barcode', code).eq('voided', false)
+        .order('created_at', { ascending: false }).limit(1).maybeSingle()
+        .then(({ data }) => { if (data) setLastObservation(data) })
+        .catch(() => {})
+      setLookingUp(false)
       return
     }
 
     if (PRODUCTS[code]) {
       setProductName(PRODUCTS[code])
+      setLookingUp(false)
       return
     }
-    setLookingUp(true)
 
     let imageUrl = ''
     let brand = ''
@@ -282,6 +301,42 @@ export default function ScanView({ onBack, user }) {
     }
 
     setLookingUp(false)
+  }
+
+  async function lookUpProduct(code) {
+    setProductBrand('')
+    setProductCategory('')
+    setProductQuantity('')
+    setProductImageUrl('')
+    setRecognizedProduct(null)
+    setLastObservation(null)
+
+    const localHit = getCachedProduct(code)
+    if (localHit) {
+      setProductName(localHit.name || '')
+      setProductBrand(localHit.brand || '')
+      setProductCategory(localHit.category || '')
+      setProductImageUrl(localHit.image_url || '')
+      setRecognizedProduct({
+        image_url: localHit.image_url || '',
+        normalized_category: localHit.normalized_category || '',
+      })
+      setLookingUp(false)
+      supabase.from('observations').select('store_id, price, created_at')
+        .eq('barcode', code).eq('voided', false)
+        .order('created_at', { ascending: false }).limit(1).maybeSingle()
+        .then(({ data }) => { if (data) setLastObservation(data) })
+        .catch(() => {})
+      return
+    }
+
+    const timeout = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('timeout')), 5000))
+    try {
+      await Promise.race([runFullLookupWaterfall(code), timeout])
+    } catch {
+      setLookingUp(false)
+    }
   }
 
   // ── Shelf camera (low-res live stream, no file input) ──
@@ -383,7 +438,7 @@ export default function ScanView({ onBack, user }) {
   async function handleSave() {
     const parsedPrice = parseFloat(price)
     setPriceError('')
-    if (!price || !productName.trim()) return
+    if (!price) return
     if (isNaN(parsedPrice) || parsedPrice <= 0) {
       setPriceError("Hmm, that doesn't look right. Price has to be more than $0 👀")
       return
@@ -392,24 +447,27 @@ export default function ScanView({ onBack, user }) {
       setPriceError('Whoa, over $200? Double check that — might be an extra zero in there 🤔')
       return
     }
+    const finalName = productName.trim() || `Item #${barcode}`
+    if (!productName.trim()) setProductName(finalName)
     localStorage.setItem('basketsplit_last_store', storeId)
     await upsertProduct({
       upc: barcode,
-      name: productName.trim(),
+      name: finalName,
       brand: productBrand,
-      category: productCategory,
+      category: productCategory || selectedCategory || 'Miscellaneous',
       quantity: productQuantity,
       image_url: productImageUrl,
       ...(!recognizedProduct && { normalized_category: selectedCategory || 'Miscellaneous' }),
     })
-    await addObservation({
+    const { queued } = await addObservation({
       barcode,
-      productName: productName.trim(),
+      productName: finalName,
       storeId,
       price: parseFloat(parsedPrice.toFixed(2)),
       timestamp: Date.now(),
       hasPhoto: !!photoBlob,
     }, user?.id)
+    setSavedQueued(queued)
     setPhase('saved')
   }
 
@@ -433,6 +491,7 @@ export default function ScanView({ onBack, user }) {
     setLastObservation(null)
     setSelectedCategory('')
     setShowReportModal(false)
+    setSavedQueued(false)
     stopScanner()
     setPhase('scanning')
   }
@@ -665,7 +724,7 @@ export default function ScanView({ onBack, user }) {
             className="cta-btn"
             style={{ marginTop: 28 }}
             onClick={handleSave}
-            disabled={!price || !productName.trim() || lookingUp || (!recognizedProduct && !selectedCategory)}
+            disabled={!price || lookingUp || (!!productName.trim() && !recognizedProduct && !selectedCategory)}
           >
             Save Price →
           </button>
@@ -681,6 +740,9 @@ export default function ScanView({ onBack, user }) {
             <span className="scan-saved-name">{productName}</span>
             <span className="scan-saved-meta">${parseFloat(price).toFixed(2)} at {savedStore?.name}</span>
             {photoBlob && <span className="scan-saved-meta">📷 Photo attached</span>}
+            {savedQueued && (
+              <span style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 2 }}>Saved locally — will sync when online</span>
+            )}
           </div>
           <button
             style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 12, textDecoration: 'underline', cursor: 'pointer', padding: '4px 0', marginTop: 8 }}

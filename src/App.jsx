@@ -50,8 +50,72 @@ export default function App() {
   const [aiContext, setAiContext] = useState(null)
   const [shoppingStore, setShoppingStore] = useState(null)
   const [shoppingItems, setShoppingItems] = useState([])
+  const [queueToast, setQueueToast] = useState(0)
+  const [queueCount, setQueueCount] = useState(0)
   const viewStack = useRef([])
   const userRef = useRef(null)
+
+  function getQueueCount() {
+    try {
+      return JSON.parse(localStorage.getItem('squrry_submission_queue') || '[]').length
+    } catch { return 0 }
+  }
+
+  async function flushQueue() {
+    let submitted = 0
+
+    try {
+      const queue = JSON.parse(localStorage.getItem('squrry_submission_queue') || '[]')
+      if (queue.length > 0) {
+        const remaining = []
+        for (const item of queue) {
+          const { queued_at, ...obs } = item
+          try {
+            const { error } = await supabase.from('observations').insert(obs)
+            if (error) remaining.push(item)
+            else submitted++
+          } catch { remaining.push(item) }
+        }
+        localStorage.setItem('squrry_submission_queue', JSON.stringify(remaining))
+      }
+    } catch {}
+
+    try {
+      const pq = JSON.parse(localStorage.getItem('squrry_product_queue') || '[]')
+      if (pq.length > 0) {
+        const remainingP = []
+        for (const item of pq) {
+          try {
+            await supabase.from('products').upsert(item)
+          } catch { remainingP.push(item) }
+        }
+        localStorage.setItem('squrry_product_queue', JSON.stringify(remainingP))
+      }
+    } catch {}
+
+    setQueueCount(getQueueCount())
+    return submitted
+  }
+
+  useEffect(() => {
+    const handle = async () => {
+      const count = await flushQueue()
+      if (count > 0) setQueueToast(count)
+    }
+    handle()
+    window.addEventListener('online', handle)
+    window.addEventListener('focus', handle)
+    return () => {
+      window.removeEventListener('online', handle)
+      window.removeEventListener('focus', handle)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (queueToast === 0) return
+    const t = setTimeout(() => setQueueToast(0), 3000)
+    return () => clearTimeout(t)
+  }, [queueToast])
 
   // Auth state listener
   useEffect(() => {
@@ -286,6 +350,9 @@ export default function App() {
             BasketSplit
           </div>
           <div className="topbar-actions">
+            {queueCount > 0 && (
+              <div className="queue-badge" title="Pending uploads">↑ {queueCount}</div>
+            )}
             <button className="topbar-search-btn" onClick={() => navTo('search')}>
               <Search size={20} />
             </button>
@@ -510,6 +577,12 @@ export default function App() {
           localStorage.setItem('bs_tutorial_seen', '1')
           setShowTutorial(false)
         }} />
+      )}
+
+      {queueToast > 0 && (
+        <div className="queue-flush-toast">
+          ✓ {queueToast} scan{queueToast !== 1 ? 's' : ''} submitted
+        </div>
       )}
 
       {view !== 'scan' && view !== 'auth' && view !== 'tos' && view !== 'privacy' && view !== 'shopping' && (
