@@ -104,45 +104,54 @@ export default function ScanView({ onBack, user }) {
   const [torchSupported, setTorchSupported] = useState(false)
   const [detectedStore, setDetectedStore] = useState(null)
 
+  function runGpsDetection() {
+    if (!navigator.geolocation) return
+    setGpsStatus('detecting')
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords
+        setGpsCoords({ lat: latitude, lng: longitude })
+        let closestId = null
+        let minDist = Infinity
+        for (const store of storesRef.current) {
+          const dist = haversine(latitude, longitude, store.lat, store.lng)
+          if (dist < minDist) {
+            minDist = dist
+            closestId = store.id
+          }
+        }
+        if (closestId && minDist <= GPS_RADIUS_M) {
+          const allStores = [...storesRef.current, ...getCustomStores()]
+          const match = allStores.find(s => s.id === closestId)
+          if (match) {
+            setStoreId(closestId)
+            setGpsStoreName(match.name)
+            setGpsStatus('detected')
+            setDetectedStore(match)
+            return
+          }
+        }
+        setGpsStatus('failed')
+      },
+      () => setGpsStatus('failed'),
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    )
+  }
+
   // Load stores from Supabase, then run GPS detection once stores are available
   useEffect(() => {
     getAllStores().then(data => {
       setStores(data)
       storesRef.current = data
       setStoreId(prev => prev || data[0]?.id || '')
-
-      if (!navigator.geolocation) return
-      setGpsStatus('detecting')
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const { latitude, longitude } = pos.coords
-          setGpsCoords({ lat: latitude, lng: longitude })
-          let closestId = null
-          let minDist = Infinity
-          for (const store of storesRef.current) {
-            const dist = haversine(latitude, longitude, store.lat, store.lng)
-            if (dist < minDist) {
-              minDist = dist
-              closestId = store.id
-            }
-          }
-          if (closestId && minDist <= GPS_RADIUS_M) {
-            const allStores = [...storesRef.current, ...getCustomStores()]
-            const match = allStores.find(s => s.id === closestId)
-            if (match) {
-              setStoreId(closestId)
-              setGpsStoreName(match.name)
-              setGpsStatus('detected')
-              setDetectedStore(match)
-              return
-            }
-          }
-          setGpsStatus('failed')
-        },
-        () => setGpsStatus('failed'),
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-      )
+      runGpsDetection()
     })
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'visible') runGpsDetection()
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
   }, [])
 
   async function toggleTorch() {
@@ -614,6 +623,12 @@ export default function ScanView({ onBack, user }) {
               <div className="scan-laser" />
             </div>
             <p className="scan-hint">Align barcode within the frame</p>
+            <button
+              style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 13, textDecoration: 'underline', cursor: 'pointer', padding: '4px 0' }}
+              onClick={runGpsDetection}
+            >
+              📍 Change store
+            </button>
             <button
               className="scan-manual-btn"
               onClick={() => { setPhase('found'); setBarcode(''); setProductName('') }}
