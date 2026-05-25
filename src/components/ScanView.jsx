@@ -96,6 +96,8 @@ export default function ScanView({ onBack, user }) {
   const [selectedCategory, setSelectedCategory] = useState('')
   const [showReportModal, setShowReportModal] = useState(false)
   const [savedQueued, setSavedQueued] = useState(false)
+  const [torchOn, setTorchOn] = useState(false)
+  const [torchSupported, setTorchSupported] = useState(false)
 
   // Load stores from Supabase
   useEffect(() => {
@@ -139,6 +141,15 @@ export default function ScanView({ onBack, user }) {
     )
   }, [])
 
+  async function toggleTorch() {
+    try {
+      await html5QrRef.current.applyVideoConstraints({
+        advanced: [{ torch: !torchOn }]
+      })
+      setTorchOn(prev => !prev)
+    } catch {}
+  }
+
   async function stopScanner() {
     if (html5QrRef.current) {
       try {
@@ -160,6 +171,11 @@ export default function ScanView({ onBack, user }) {
         fps: 15,
         aspectRatio: 1.777,
         disableFlip: false,
+        focusMode: 'continuous',
+        experimentalFeatures: {
+          useBarCodeDetectorIfSupported: true,
+        },
+        advanced: [{ zoom: 2.0 }],
         formatsToSupport: [
           Html5QrcodeSupportedFormats.EAN_13,
           Html5QrcodeSupportedFormats.EAN_8,
@@ -180,7 +196,12 @@ export default function ScanView({ onBack, user }) {
       (_errorMessage) => {
         // Scan attempt failure — fires constantly while searching for a barcode
       }
-    ).catch(err => {
+    ).then(async () => {
+      try {
+        const capabilities = await html5QrRef.current.getRunningTrackCapabilities()
+        if (capabilities.torch) setTorchSupported(true)
+      } catch {}
+    }).catch(err => {
       setPhase('error')
       setErrorMsg(err?.message || 'Camera access denied')
     })
@@ -528,6 +549,11 @@ export default function ScanView({ onBack, user }) {
               <p className="scan-gps-badge">📍 {gpsStoreName} detected</p>
             )}
           </div>
+          {torchSupported && (
+            <button className="torch-btn" onClick={toggleTorch}>
+              {torchOn ? '🔦 On' : '🔦 Off'}
+            </button>
+          )}
           <button className="scan-back-btn" onClick={onBack}>← Back</button>
         </div>
       )}
