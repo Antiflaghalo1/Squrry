@@ -9,7 +9,7 @@ import ReportModal from './ReportModal'
 import normalizeCategory from '../utils/normalizeCategory'
 
 const WEBHOOK_URL = import.meta.env.VITE_WEBHOOK_URL
-const GPS_RADIUS_M = 400
+const GPS_RADIUS_M = 750
 
 // Approximate coords — fine-tune per Google Maps if needed
 const STORE_COORDS = {
@@ -100,6 +100,7 @@ export default function ScanView({ onBack, user }) {
   const [apiLookupStatus, setApiLookupStatus] = useState(null)
   const [torchOn, setTorchOn] = useState(false)
   const [torchSupported, setTorchSupported] = useState(false)
+  const [detectedStore, setDetectedStore] = useState(null)
 
   // Load stores from Supabase
   useEffect(() => {
@@ -133,6 +134,7 @@ export default function ScanView({ onBack, user }) {
             setStoreId(closestId)
             setGpsStoreName(match.name)
             setGpsStatus('detected')
+            setDetectedStore(match)
             return
           }
         }
@@ -574,6 +576,28 @@ export default function ScanView({ onBack, user }) {
             style={{ width: '100%', height: '100%', position: 'absolute', inset: 0 }}
           />
           <div className="scan-overlay">
+            {detectedStore && (
+              <div style={{
+                background: 'var(--green-pale)',
+                border: '1px solid var(--green)',
+                borderRadius: 8,
+                padding: '10px 14px',
+                fontSize: 14,
+                color: 'var(--green-dark)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 8,
+                margin: '8px 8px 0',
+              }}>
+                <span>📍 {detectedStore.name} detected — selected automatically</span>
+                <button
+                  onClick={() => setDetectedStore(null)}
+                  style={{ background: 'none', border: 'none', color: 'var(--green-dark)', fontSize: 16, lineHeight: 1, cursor: 'pointer', padding: '0 2px', flexShrink: 0 }}
+                  aria-label="Dismiss"
+                >×</button>
+              </div>
+            )}
             <div className="scan-frame-box">
               <div className="scan-corner-tl" />
               <div className="scan-corner-tr" />
