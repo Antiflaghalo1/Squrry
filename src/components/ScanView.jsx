@@ -9,7 +9,7 @@ import ReportModal from './ReportModal'
 import normalizeCategory from '../utils/normalizeCategory'
 
 const WEBHOOK_URL = import.meta.env.VITE_WEBHOOK_URL
-const GPS_RADIUS_M = 750
+const GPS_RADIUS_M = 1200
 
 // Approximate coords — fine-tune per Google Maps if needed
 const STORE_COORDS = {
