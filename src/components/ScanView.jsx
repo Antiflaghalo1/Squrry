@@ -77,6 +77,7 @@ export default function ScanView({ onBack, user }) {
   const [newName, setNewName] = useState('')
   const [newCity, setNewCity] = useState('')
   const [newAddress, setNewAddress] = useState('')
+  const [addressError, setAddressError] = useState('')
   const [addError, setAddError] = useState('')
   const [savedFlash, setSavedFlash] = useState(false)
 
@@ -89,6 +90,7 @@ export default function ScanView({ onBack, user }) {
   const [pricesLoading, setPricesLoading] = useState(false)
   const [gpsStatus, setGpsStatus] = useState('idle')
   const [gpsStoreName, setGpsStoreName] = useState('')
+  const [gpsCoords, setGpsCoords] = useState(null)
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState(null)
   const [photoBlob, setPhotoBlob] = useState(null)
   const [photoCapturing, setPhotoCapturing] = useState(false)
@@ -118,6 +120,7 @@ export default function ScanView({ onBack, user }) {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const { latitude, longitude } = pos.coords
+        setGpsCoords({ lat: latitude, lng: longitude })
         let closestId = null
         let minDist = Infinity
         for (const [id, coords] of Object.entries(STORE_COORDS)) {
@@ -468,6 +471,11 @@ export default function ScanView({ onBack, user }) {
       setAddError('Store name and city are required.')
       return
     }
+    if (!newAddress.trim()) {
+      setAddressError('Address is required')
+      return
+    }
+    setAddressError('')
     const allIds = new Set([...stores, ...customStores].map(s => s.id))
     let base = slugify(newName.trim()) || 'store_' + Date.now()
     let id = base
@@ -477,10 +485,12 @@ export default function ScanView({ onBack, user }) {
       id,
       name: newName.trim(),
       location: newCity.trim(),
-      ...(newAddress.trim() && { address: newAddress.trim() }),
+      address: newAddress.trim(),
       color: '#888888',
       addedAt: new Date().toISOString(),
       source: 'user_added',
+      lat: gpsCoords?.lat ?? null,
+      lng: gpsCoords?.lng ?? null,
     }
     addCustomStore(store)
     const updated = [...customStores, store]
@@ -491,6 +501,7 @@ export default function ScanView({ onBack, user }) {
     setNewCity('')
     setNewAddress('')
     setAddError('')
+    setAddressError('')
     setShowAddStore(false)
     setSavedFlash(true)
   }
@@ -760,11 +771,12 @@ export default function ScanView({ onBack, user }) {
             <form className="add-store-form" onSubmit={handleAddStore}>
               <input className="scan-input" placeholder="Store Name *" value={newName} onChange={e => setNewName(e.target.value)} />
               <input className="scan-input" placeholder="City *" value={newCity} onChange={e => setNewCity(e.target.value)} />
-              <input className="scan-input" placeholder="Address (optional)" value={newAddress} onChange={e => setNewAddress(e.target.value)} />
+              <input className="scan-input" placeholder="Address *" value={newAddress} onChange={e => setNewAddress(e.target.value)} />
+              {addressError && <p className="add-store-error">{addressError}</p>}
               {addError && <p className="add-store-error">{addError}</p>}
               <div className="add-store-row">
                 <button type="submit" className="add-store-submit">Save Store</button>
-                <button type="button" className="add-store-cancel" onClick={() => { setShowAddStore(false); setAddError('') }}>Cancel</button>
+                <button type="button" className="add-store-cancel" onClick={() => { setShowAddStore(false); setAddError(''); setAddressError('') }}>Cancel</button>
               </div>
             </form>
           )}

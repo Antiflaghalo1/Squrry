@@ -1,3 +1,5 @@
+import { supabase } from '../lib/supabase'
+
 const KEY = 'basketsplit_custom_stores'
 
 export function getCustomStores() {
@@ -8,9 +10,33 @@ export function getCustomStores() {
   }
 }
 
-export function addCustomStore(store) {
-  try {
-    const prev = getCustomStores()
-    localStorage.setItem(KEY, JSON.stringify([...prev, store]))
-  } catch {}
+export async function addCustomStore(store) {
+  const { data: { user } } = await supabase.auth.getUser()
+  const { error } = await supabase.from('store_candidates').insert({
+    name: store.name,
+    address: store.address ?? null,
+    city: store.location ?? null,
+    state: 'CA',
+    lat: store.lat ?? null,
+    lng: store.lng ?? null,
+    store_type: null,
+    source: 'user_submitted',
+    status: 'candidate',
+    submitted_by: user?.id ?? null,
+    notes: store.notes ?? null,
+  })
+  if (!error) {
+    fetch('/api/send-store-candidate-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: store.name,
+        address: store.address ?? null,
+        city: store.location ?? null,
+        lat: store.lat ?? null,
+        lng: store.lng ?? null,
+        submittedBy: user?.id ?? null,
+      }),
+    }).catch(() => {})
+  }
 }
