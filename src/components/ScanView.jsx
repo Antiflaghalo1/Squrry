@@ -123,11 +123,11 @@ export default function ScanView({ onBack, user }) {
         setGpsCoords({ lat: latitude, lng: longitude })
         let closestId = null
         let minDist = Infinity
-        for (const [id, coords] of Object.entries(STORE_COORDS)) {
-          const dist = haversine(latitude, longitude, coords.lat, coords.lng)
+        for (const store of storesRef.current) {
+          const dist = haversine(latitude, longitude, store.lat, store.lng)
           if (dist < minDist) {
             minDist = dist
-            closestId = id
+            closestId = store.id
           }
         }
         if (closestId && minDist <= GPS_RADIUS_M) {
