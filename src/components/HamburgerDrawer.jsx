@@ -74,6 +74,8 @@ export default function HamburgerDrawer({ isOpen, onClose, budget, avatarUrl, fi
           <span className="drawer-row-icon"><LogOut size={18} /></span>
           Sign Out
         </button>
+
+        <div className="drawer-version">v0.9.0</div>
       </div>
     </div>
   )
