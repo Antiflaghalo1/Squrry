@@ -144,7 +144,7 @@ export default function ScanView({ onBack, user }) {
         setGpsStatus('failed')
       },
       () => setGpsStatus('failed'),
-      { timeout: 8000, maximumAge: 60000 }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     )
   }, [])
 
