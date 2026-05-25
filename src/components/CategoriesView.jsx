@@ -19,6 +19,7 @@ const CAT_META = {
   'Health & Beauty':       { emoji: '🧴', bg: '#EEEDFE', dot: '#7F77DD' },
   'Household & Cleaning':  { emoji: '🧹', bg: '#F1EFE8', dot: '#888780' },
   'Baby & Kids':           { emoji: '👶', bg: '#FBEAF0', dot: '#D4537E' },
+  'Breakfast & Cereal':    { emoji: '🥣', bg: '#FFF3E0', dot: '#E67E22' },
   'Deli & Prepared':       { emoji: '🥗', bg: '#FFF3E0', dot: '#E67E22' },
   'Miscellaneous':         { emoji: '🛒', bg: '#F1EFE8', dot: '#888780' },
 }

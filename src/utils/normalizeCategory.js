@@ -20,6 +20,11 @@ const RULES = [
     'bakery', 'bread', 'bun', 'roll', 'tortilla', 'bagel', 'muffin',
     'croissant', 'cake', 'pastry', 'wrap', 'pita', 'biscuit', 'loaf',
   ]],
+  ['Breakfast & Cereal', [
+    'cereal', 'oatmeal', 'granola', 'breakfast bar', 'pancake',
+    'waffle mix', 'syrup', 'pop tart', 'instant oat', 'cream of wheat',
+    'grits', 'muesli',
+  ]],
   ['Pantry & Canned', [
     'pantry', 'canned', 'can', 'soup', 'sauce', 'pasta', 'noodle',
     'rice', 'bean', 'grain', 'cereal', 'oat', 'flour', 'oil', 'vinegar',
