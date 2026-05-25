@@ -6,6 +6,7 @@ import { addObservation, upsertProduct } from '../data/observations'
 import { getCustomStores, addCustomStore } from '../data/customStores'
 import { supabase } from '../lib/supabase'
 import ReportModal from './ReportModal'
+import normalizeCategory from '../utils/normalizeCategory'
 
 const WEBHOOK_URL = import.meta.env.VITE_WEBHOOK_URL
 const GPS_RADIUS_M = 400
@@ -96,6 +97,7 @@ export default function ScanView({ onBack, user }) {
   const [selectedCategory, setSelectedCategory] = useState('')
   const [showReportModal, setShowReportModal] = useState(false)
   const [savedQueued, setSavedQueued] = useState(false)
+  const [apiLookupStatus, setApiLookupStatus] = useState(null)
   const [torchOn, setTorchOn] = useState(false)
   const [torchSupported, setTorchSupported] = useState(false)
 
@@ -260,6 +262,16 @@ export default function ScanView({ onBack, user }) {
     } catch { return null }
   }
 
+  function queueForRelookup(code) {
+    try {
+      const queue = JSON.parse(localStorage.getItem('squrry_relookup_queue') || '[]')
+      if (!queue.includes(String(code))) {
+        queue.push(String(code))
+        localStorage.setItem('squrry_relookup_queue', JSON.stringify(queue))
+      }
+    } catch {}
+  }
+
   async function runFullLookupWaterfall(code) {
     setLookingUp(true)
 
@@ -276,6 +288,7 @@ export default function ScanView({ onBack, user }) {
       setProductQuantity(dbProduct.quantity || '')
       setProductImageUrl(dbProduct.image_url || '')
       setRecognizedProduct({ image_url: dbProduct.image_url || '', normalized_category: dbProduct.normalized_category || '' })
+      setApiLookupStatus('found')
       supabase.from('observations').select('store_id, price, created_at')
         .eq('barcode', code).eq('voided', false)
         .order('created_at', { ascending: false }).limit(1).maybeSingle()
@@ -287,6 +300,7 @@ export default function ScanView({ onBack, user }) {
 
     if (PRODUCTS[code]) {
       setProductName(PRODUCTS[code])
+      setApiLookupStatus('found')
       setLookingUp(false)
       return
     }
@@ -294,31 +308,50 @@ export default function ScanView({ onBack, user }) {
     let imageUrl = ''
     let brand = ''
     let category = ''
+    let offOk = false
+    let offFound = false
+    let upcOk = false
 
     try {
       const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${code}.json`)
-      const data = await res.json()
-      if (data.status === 1 && data.product?.product_name) {
-        const qty = data.product.quantity ? ` ${data.product.quantity}` : ''
-        setProductName(data.product.product_name + qty)
-        brand = data.product.brands || ''
-        setProductBrand(brand)
-        category = (data.product.categories || '').split(',')[0]?.trim() || ''
-        setProductCategory(category)
-        setProductQuantity(data.product.quantity || '')
-        imageUrl = data.product.image_front_url || data.product.image_url || ''
-        setProductImageUrl(imageUrl)
+      if (res.ok) {
+        offOk = true
+        const data = await res.json()
+        if (data.status === 1 && data.product?.product_name) {
+          offFound = true
+          const qty = data.product.quantity ? ` ${data.product.quantity}` : ''
+          setProductName(data.product.product_name + qty)
+          brand = data.product.brands || ''
+          setProductBrand(brand)
+          category = (data.product.categories || '').split(',')[0]?.trim() || ''
+          setProductCategory(category)
+          setProductQuantity(data.product.quantity || '')
+          imageUrl = data.product.image_front_url || data.product.image_url || ''
+          setProductImageUrl(imageUrl)
+        }
       }
     } catch {}
 
     if (!imageUrl) {
       try {
         const res2 = await fetch(`/api/lookup?upc=${encodeURIComponent(code)}`)
-        const data2 = await res2.json()
-        if (data2.image_url) setProductImageUrl(data2.image_url)
-        if (!brand && data2.brand) setProductBrand(data2.brand)
-        if (!category && data2.category) setProductCategory(data2.category)
+        if (res2.ok) {
+          upcOk = true
+          const data2 = await res2.json()
+          if (data2.image_url) setProductImageUrl(data2.image_url)
+          if (!brand && data2.brand) setProductBrand(data2.brand)
+          if (!category && data2.category) setProductCategory(data2.category)
+        }
       } catch {}
+    }
+
+    if (offFound) {
+      setApiLookupStatus('found')
+    } else if (offOk || upcOk) {
+      setApiLookupStatus('not_found')
+    } else {
+      setApiLookupStatus('error')
+      queueForRelookup(code)
     }
 
     setLookingUp(false)
@@ -331,6 +364,7 @@ export default function ScanView({ onBack, user }) {
     setProductImageUrl('')
     setRecognizedProduct(null)
     setLastObservation(null)
+    setApiLookupStatus(null)
 
     const localHit = getCachedProduct(code)
     if (localHit) {
@@ -342,6 +376,7 @@ export default function ScanView({ onBack, user }) {
         image_url: localHit.image_url || '',
         normalized_category: localHit.normalized_category || '',
       })
+      setApiLookupStatus('found')
       setLookingUp(false)
       supabase.from('observations').select('store_id, price, created_at')
         .eq('barcode', code).eq('voided', false)
@@ -357,6 +392,8 @@ export default function ScanView({ onBack, user }) {
       await Promise.race([runFullLookupWaterfall(code), timeout])
     } catch {
       setLookingUp(false)
+      setApiLookupStatus('error')
+      queueForRelookup(code)
     }
   }
 
@@ -478,7 +515,11 @@ export default function ScanView({ onBack, user }) {
       category: productCategory || selectedCategory || 'Miscellaneous',
       quantity: productQuantity,
       image_url: productImageUrl,
-      ...(!recognizedProduct && { normalized_category: selectedCategory || 'Miscellaneous' }),
+      ...(!recognizedProduct && {
+        normalized_category: apiLookupStatus === 'found'
+          ? normalizeCategory(productCategory)
+          : selectedCategory || 'Miscellaneous',
+      }),
     })
     const { queued } = await addObservation({
       barcode,
@@ -511,6 +552,7 @@ export default function ScanView({ onBack, user }) {
     setRecognizedProduct(null)
     setLastObservation(null)
     setSelectedCategory('')
+    setApiLookupStatus(null)
     setShowReportModal(false)
     setSavedQueued(false)
     stopScanner()
@@ -519,6 +561,7 @@ export default function ScanView({ onBack, user }) {
 
   const allStores = [...stores, ...customStores]
   const savedStore = allStores.find(s => s.id === storeId)
+  const autoCategory = recognizedProduct?.normalized_category || normalizeCategory(productCategory)
 
   return (
     <div className="scan-view">
@@ -620,30 +663,40 @@ export default function ScanView({ onBack, user }) {
             />
           )}
 
-          {/* Category — only for truly new products */}
-          {!recognizedProduct && (
+          {/* Category */}
+          {!lookingUp && (
             <div className="scan-field">
               <label className="scan-label">Category</label>
-              <select
-                className="scan-input"
-                value={selectedCategory}
-                onChange={e => setSelectedCategory(e.target.value)}
-              >
-                <option value="">Select a category…</option>
-                <option value="Dairy & Eggs">Dairy &amp; Eggs</option>
-                <option value="Meat & Seafood">Meat &amp; Seafood</option>
-                <option value="Produce">Produce</option>
-                <option value="Bakery & Bread">Bakery &amp; Bread</option>
-                <option value="Pantry & Canned">Pantry &amp; Canned</option>
-                <option value="Snacks & Candy">Snacks &amp; Candy</option>
-                <option value="Beverages">Beverages</option>
-                <option value="Breakfast & Cereal">Breakfast &amp; Cereal</option>
-                <option value="Frozen Foods">Frozen Foods</option>
-                <option value="Health & Beauty">Health &amp; Beauty</option>
-                <option value="Household & Cleaning">Household &amp; Cleaning</option>
-                <option value="Baby & Kids">Baby &amp; Kids</option>
-                <option value="Miscellaneous">Miscellaneous</option>
-              </select>
+              {(recognizedProduct || apiLookupStatus === 'found') ? (
+                <p style={{ margin: '6px 0 0', fontSize: 14, color: 'var(--text)', fontWeight: 500 }}>{autoCategory}</p>
+              ) : apiLookupStatus === 'error' ? (
+                <>
+                  <p style={{ margin: '6px 0 0', fontSize: 14, color: 'var(--text)', fontWeight: 500 }}>Miscellaneous</p>
+                  <p style={{ margin: '4px 0 0', fontSize: 11, color: 'var(--text-muted)' }}>Category auto-detected when connection improves.</p>
+                </>
+              ) : (
+                <select
+                  className="scan-input"
+                  value={selectedCategory}
+                  onChange={e => setSelectedCategory(e.target.value)}
+                >
+                  <option value="">Select a category…</option>
+                  <option value="Meat & Seafood">Meat &amp; Seafood</option>
+                  <option value="Dairy & Eggs">Dairy &amp; Eggs</option>
+                  <option value="Produce">Produce</option>
+                  <option value="Bakery & Bread">Bakery &amp; Bread</option>
+                  <option value="Pantry & Canned">Pantry &amp; Canned</option>
+                  <option value="Frozen">Frozen</option>
+                  <option value="Beverages">Beverages</option>
+                  <option value="Snacks">Snacks</option>
+                  <option value="Pet Care">Pet Care</option>
+                  <option value="Health & Beauty">Health &amp; Beauty</option>
+                  <option value="Household & Cleaning">Household &amp; Cleaning</option>
+                  <option value="Baby & Kids">Baby &amp; Kids</option>
+                  <option value="Deli & Prepared">Deli &amp; Prepared</option>
+                  <option value="Miscellaneous">Miscellaneous</option>
+                </select>
+              )}
             </div>
           )}
 
@@ -750,7 +803,7 @@ export default function ScanView({ onBack, user }) {
             className="cta-btn"
             style={{ marginTop: 28 }}
             onClick={handleSave}
-            disabled={!price || lookingUp || (!!productName.trim() && !recognizedProduct && !selectedCategory)}
+            disabled={!price || lookingUp || (!!productName.trim() && !recognizedProduct && (apiLookupStatus === 'not_found' || apiLookupStatus === null) && !selectedCategory)}
           >
             Save Price →
           </button>
