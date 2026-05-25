@@ -25,18 +25,20 @@ export async function addCustomStore(store) {
     submitted_by: user?.id ?? null,
     notes: store.notes ?? null,
   })
-  if (!error) {
-    fetch('/api/send-store-candidate-email', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: store.name,
-        address: store.address ?? null,
-        city: store.location ?? null,
-        lat: store.lat ?? null,
-        lng: store.lng ?? null,
-        submittedBy: user?.id ?? null,
-      }),
-    }).catch(() => {})
+  if (error) {
+    console.error('[customStores] store_candidates insert failed:', error)
+    return
   }
+  fetch('/api/send-store-candidate-email', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name: store.name,
+      address: store.address ?? null,
+      city: store.location ?? null,
+      lat: store.lat ?? null,
+      lng: store.lng ?? null,
+      submittedBy: user?.id ?? null,
+    }),
+  }).catch(() => {})
 }
