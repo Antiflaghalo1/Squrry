@@ -50,6 +50,7 @@ export default function App() {
   const [aiContext, setAiContext] = useState(null)
   const [shoppingStore, setShoppingStore] = useState(null)
   const [shoppingItems, setShoppingItems] = useState([])
+  const [savedItemsCount, setSavedItemsCount] = useState(0)
   const [queueToast, setQueueToast] = useState(0)
   const [queueCount, setQueueCount] = useState(0)
   const viewStack = useRef([])
@@ -165,6 +166,18 @@ export default function App() {
     window.addEventListener('popstate', handlePopState)
     return () => window.removeEventListener('popstate', handlePopState)
   }, [])
+
+  useEffect(() => {
+    if (!user?.id) {
+      setSavedItemsCount(0)
+      return
+    }
+    supabase
+      .from('saved_items')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .then(({ count }) => setSavedItemsCount(count || 0))
+  }, [user?.id, view])
 
   useEffect(() => {
     if (!user) return
@@ -357,11 +370,11 @@ export default function App() {
               <Search size={20} />
             </button>
             <div className="topbar-cart-wrap">
-              <button className="topbar-cart-btn" onClick={() => navTo('list')}>
+              <button className="topbar-cart-btn" onClick={() => navTo('saved')}>
                 <ShoppingCart size={20} />
               </button>
-              {selectedItems.size > 0 && (
-                <span className="topbar-cart-badge">{selectedItems.size}</span>
+              {savedItemsCount > 0 && (
+                <span className="topbar-cart-badge">{savedItemsCount}</span>
               )}
             </div>
           </div>
