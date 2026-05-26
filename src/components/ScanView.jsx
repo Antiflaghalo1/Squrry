@@ -9,7 +9,7 @@ import ReportModal from './ReportModal'
 import normalizeCategory from '../utils/normalizeCategory'
 
 const WEBHOOK_URL = import.meta.env.VITE_WEBHOOK_URL
-const GPS_RADIUS_M = 1200
+const GPS_RADIUS_M = 750
 
 // Approximate coords — fine-tune per Google Maps if needed
 const STORE_COORDS = {
@@ -148,17 +148,20 @@ export default function ScanView({ onBack, user }) {
 
   // Load stores from Supabase, then start continuous GPS watch
   useEffect(() => {
+    let intervalId = null
     getAllStores().then(data => {
       setStores(data)
       storesRef.current = data
       setStoreId(prev => prev || data[0]?.id || '')
       runGpsDetection()
+      intervalId = setInterval(runGpsDetection, 20000)
     })
 
     return () => {
       if (watchIdRef.current !== null) {
         navigator.geolocation.clearWatch(watchIdRef.current)
       }
+      if (intervalId !== null) clearInterval(intervalId)
     }
   }, [])
 
@@ -598,9 +601,9 @@ export default function ScanView({ onBack, user }) {
         <div className="scan-camera-wrap">
           <div
             id="squrry-scanner-region"
-            style={{ width: '100%', height: '100%', position: 'absolute', inset: 0 }}
+            style={{ width: '100%', height: '100%', position: 'absolute', inset: 0, zIndex: 0 }}
           />
-          <div className="scan-overlay">
+          <div className="scan-overlay" style={{ position: 'relative', zIndex: 2, pointerEvents: 'none' }}>
             {detectedStore && (
               <div style={{
                 background: 'var(--green-pale)',
@@ -617,8 +620,8 @@ export default function ScanView({ onBack, user }) {
               }}>
                 <span>📍 {detectedStore.name} detected — selected automatically</span>
                 <button
-                  onClick={() => setDetectedStore(null)}
-                  style={{ background: 'none', border: 'none', color: 'var(--green-dark)', fontSize: 16, lineHeight: 1, cursor: 'pointer', padding: '0 2px', flexShrink: 0 }}
+                  onClick={() => { setDetectedStore(null); detectedStoreRef.current = null }}
+                  style={{ background: 'none', border: 'none', color: 'var(--green-dark)', fontSize: 16, lineHeight: 1, cursor: 'pointer', padding: '0 2px', flexShrink: 0, pointerEvents: 'auto' }}
                   aria-label="Dismiss"
                 >×</button>
               </div>
@@ -632,13 +635,14 @@ export default function ScanView({ onBack, user }) {
             </div>
             <p className="scan-hint">Align barcode within the frame</p>
             <button
-              style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 13, textDecoration: 'underline', cursor: 'pointer', padding: '4px 0' }}
+              style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 13, textDecoration: 'underline', cursor: 'pointer', padding: '4px 0', pointerEvents: 'auto' }}
               onClick={runGpsDetection}
             >
               📍 Change store
             </button>
             <button
               className="scan-manual-btn"
+              style={{ pointerEvents: 'auto' }}
               onClick={() => { setPhase('found'); setBarcode(''); setProductName('') }}
             >
               Enter barcode manually →
@@ -652,7 +656,7 @@ export default function ScanView({ onBack, user }) {
               {torchOn ? '🔦 On' : '🔦 Off'}
             </button>
           )}
-          <button className="scan-back-btn" onClick={onBack}>← Back</button>
+          <button className="scan-back-btn" style={{ pointerEvents: 'auto' }} onClick={onBack}>← Back</button>
         </div>
       )}
 
