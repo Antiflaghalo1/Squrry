@@ -313,7 +313,7 @@ h1 { font-size: 17px; font-weight: 800; color: var(--text); }
 .drawer--open { transform: translateX(0); }
 .drawer-close-btn { position: absolute; top: 14px; right: 14px; background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.2); border-radius: 6px; font-size: 18px; color: white; cursor: pointer; line-height: 1; padding: 4px; }
 .drawer-close-btn:active { background: rgba(255,255,255,.25); }
-.drawer-header { padding: 24px 20px 20px; font-size: 20px; font-weight: 800; color: white; }
+.drawer-header { padding: 16px 20px 12px; font-size: 20px; font-weight: 800; color: white; background: transparent; line-height: 0; }
 .drawer-divider { height: 1px; background: rgba(255,255,255,.2); margin: 0; }
 .drawer-section { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; gap: 12px; }
 .drawer-section-label { font-size: 15px; font-weight: 600; color: var(--text); white-space: nowrap; }
