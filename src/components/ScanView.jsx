@@ -205,7 +205,6 @@ export default function ScanView({ onBack, user }) {
       { facingMode: 'environment' },
       {
         fps: 15,
-        qrbox: { width: 280, height: 280 },
         aspectRatio: 1.777,
         disableFlip: false,
         focusMode: 'continuous',
@@ -657,15 +656,14 @@ export default function ScanView({ onBack, user }) {
             </button>
           </div>
           <div className="scan-overlay">
+            <div className="scan-frame-box">
+              <div className="scan-corner-tl" />
+              <div className="scan-corner-tr" />
+              <div className="scan-corner-bl" />
+              <div className="scan-corner-br" />
+              <div className="scan-laser" />
+            </div>
             <p className="scan-hint">Align barcode within the frame</p>
-            <div className="scan-laser" style={{
-              position: 'absolute',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-              width: 280,
-              pointerEvents: 'none'
-            }} />
             <button
               className="scan-manual-btn"
               style={{ pointerEvents: 'auto' }}
