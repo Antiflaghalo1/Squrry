@@ -436,7 +436,12 @@ export default function App() {
         />
       )}
 
-      {view === 'search' && <SearchView onBack={goBack} />}
+      {view === 'search' && (
+        <SearchView
+          onBack={goBack}
+          onStoreSelect={(store) => { setSelectedStore(store); navTo('store') }}
+        />
+      )}
       {view === 'store' && <StoreView store={selectedStore} onBack={goBack} />}
       {view === 'scan' && <ScanView onBack={goBack} user={user} />}
       {view === 'recent' && <RecentScansView onBack={goBack} userId={user?.id} />}

@@ -3,10 +3,11 @@ import { Search } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { getAllStores } from '../data/storeService'
 
-export default function SearchView({ onBack }) {
+export default function SearchView({ onBack, onStoreSelect }) {
   const [query, setQuery] = useState('')
   const [products, setProducts] = useState([])
   const [deals, setDeals] = useState([])
+  const [storeResults, setStoreResults] = useState([])
   const [loading, setLoading] = useState(false)
   const [searched, setSearched] = useState(false)
   const [stores, setStores] = useState([])
@@ -23,6 +24,7 @@ export default function SearchView({ onBack }) {
     if (!query.trim()) {
       setProducts([])
       setDeals([])
+      setStoreResults([])
       setSearched(false)
       setLoading(false)
       return
@@ -33,7 +35,7 @@ export default function SearchView({ onBack }) {
   }, [query])
 
   async function runSearch(q) {
-    const [{ data: prodData }, { data: flippData }] = await Promise.all([
+    const [{ data: prodData }, { data: flippData }, { data: storeData }] = await Promise.all([
       supabase
         .from('products')
         .select('upc, name, image_url, normalized_category, category')
@@ -45,6 +47,12 @@ export default function SearchView({ onBack }) {
         .ilike('product_name', `%${q}%`)
         .gt('price', 0)
         .limit(10),
+      supabase
+        .from('stores')
+        .select('id, name, location, city, color')
+        .or(`name.ilike.%${q}%,city.ilike.%${q}%,location.ilike.%${q}%`)
+        .eq('verified', true)
+        .limit(5),
     ])
 
     let enriched = prodData || []
@@ -70,12 +78,13 @@ export default function SearchView({ onBack }) {
 
     setProducts(enriched)
     setDeals(flippData || [])
+    setStoreResults(storeData || [])
     setLoading(false)
     setSearched(true)
   }
 
   const q = query.trim()
-  const hasResults = products.length > 0 || deals.length > 0
+  const hasResults = products.length > 0 || deals.length > 0 || storeResults.length > 0
 
   return (
     <div className="search-view">
@@ -107,6 +116,23 @@ export default function SearchView({ onBack }) {
 
       {q && !loading && hasResults && (
         <div className="search-results">
+          {storeResults.length > 0 && (
+            <div className="search-section">
+              <div className="search-section-title">Stores</div>
+              {storeResults.map(store => (
+                <div
+                  key={store.id}
+                  className="search-product-row"
+                  style={{ cursor: 'pointer', borderLeft: `3px solid ${store.color || 'var(--green)'}`, paddingLeft: 10 }}
+                  onClick={() => onStoreSelect?.(store)}
+                >
+                  <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--text)' }}>{store.name}</div>
+                  <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{store.city || store.location}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
           {products.length > 0 && (
             <div className="search-section">
               <div className="search-section-title">Community Scanned</div>
