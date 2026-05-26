@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { MapPin, Clock, TrendingUp, Package } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { getAllStores } from '../data/storeService'
@@ -31,6 +31,8 @@ export default function HomeView({ user, firstName, budget, onBudgetNav, onSeeAl
   const [deals, setDeals] = useState([])
   const [pulseStats, setPulseStats] = useState({ prices: null, products: null })
   const [showStoreHint, setShowStoreHint] = useState(!localStorage.getItem('bs_home_hint_seen'))
+  const watchIdRef = useRef(null)
+  const pollIntervalRef = useRef(null)
 
   const budgetNum = parseFloat(budget) || 0
 
@@ -46,17 +48,38 @@ export default function HomeView({ user, firstName, budget, onBudgetNav, onSeeAl
 
   useEffect(() => {
     getAllStores().then(rawStores => {
-      navigator.geolocation.getCurrentPosition(
-        pos => {
-          const { latitude: lat, longitude: lng } = pos.coords
-          const withCoords = rawStores.filter(s => s.lat != null && s.lng != null)
-          const noCoords = rawStores.filter(s => s.lat == null || s.lng == null)
-          withCoords.sort((a, b) => haversine(lat, lng, a.lat, a.lng) - haversine(lat, lng, b.lat, b.lng))
-          setStores([...withCoords, ...noCoords])
-        },
-        () => setStores(rawStores),
-        { timeout: 8000 }
-      )
+      const storesWithoutCoords = rawStores.filter(s => s.lat == null || s.lng == null)
+
+      function sortStoresByLocation(pos) {
+        const { latitude: lat, longitude: lng } = pos.coords
+        const withCoords = rawStores.filter(s => s.lat != null && s.lng != null)
+        withCoords.sort((a, b) => haversine(lat, lng, a.lat, a.lng) - haversine(lat, lng, b.lat, b.lng))
+        setStores([...withCoords, ...storesWithoutCoords])
+      }
+
+      function runDetection() {
+        const fallback = () => setStores(rawStores)
+        navigator.geolocation.getCurrentPosition(sortStoresByLocation, fallback, {
+          enableHighAccuracy: true, timeout: 5000, maximumAge: 30000,
+        })
+        watchIdRef.current = navigator.geolocation.watchPosition(sortStoresByLocation, fallback, {
+          enableHighAccuracy: true, timeout: 10000, maximumAge: 0,
+        })
+      }
+
+      runDetection()
+      pollIntervalRef.current = setInterval(runDetection, 10000)
+
+      function onVisibility() {
+        if (document.visibilityState === 'visible') runDetection()
+      }
+      document.addEventListener('visibilitychange', onVisibility)
+
+      return () => {
+        navigator.geolocation.clearWatch(watchIdRef.current)
+        clearInterval(pollIntervalRef.current)
+        document.removeEventListener('visibilitychange', onVisibility)
+      }
     })
     loadRecent()
     loadDeals()
