@@ -103,6 +103,8 @@ export default function ScanView({ onBack, user }) {
   const [torchOn, setTorchOn] = useState(false)
   const [torchSupported, setTorchSupported] = useState(false)
   const [detectedStore, setDetectedStore] = useState(null)
+  const detectedStoreRef = useRef(null)
+  useEffect(() => { detectedStoreRef.current = detectedStore }, [detectedStore])
   const watchIdRef = useRef(null)
 
   function runGpsDetection() {
@@ -128,10 +130,12 @@ export default function ScanView({ onBack, user }) {
           const allStores = [...storesRef.current, ...getCustomStores()]
           const match = allStores.find(s => s.id === closestId)
           if (match) {
-            setStoreId(closestId)
-            setGpsStoreName(match.name)
-            setGpsStatus('detected')
-            setDetectedStore(match)
+            if (detectedStoreRef.current?.id !== closestId) {
+              setStoreId(closestId)
+              setGpsStoreName(match.name)
+              setGpsStatus('detected')
+              setDetectedStore(match)
+            }
             return
           }
         }
