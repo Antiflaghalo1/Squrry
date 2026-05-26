@@ -14,7 +14,7 @@ export default function HamburgerDrawer({ isOpen, onClose, budget, avatarUrl, fi
 
         <div className="drawer-header">
           <button className="drawer-home-btn" onClick={() => { onHome?.() }}>
-            <img src="/squrry-logo.png" alt="Squrry" style={{ height: 48, width: 'auto', maxWidth: '160px' }} />
+            <img src="/squrry-logo.png" alt="Squrry" style={{ height: 120, width: 'auto', maxWidth: '90%' }} />
           </button>
         </div>
 
