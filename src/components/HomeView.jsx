@@ -67,6 +67,16 @@ export default function HomeView({ user, firstName, budget, onBudgetNav, onSeeAl
         })
       }
 
+      const cached = localStorage.getItem('squrry_last_coords')
+      if (cached) {
+        try {
+          const c = JSON.parse(cached)
+          if (Date.now() - c.ts < 600000) {
+            sortStoresByLocation({ coords: { latitude: c.lat, longitude: c.lng } })
+          }
+        } catch {}
+      }
+
       runDetection()
       pollIntervalRef.current = setInterval(runDetection, 10000)
 

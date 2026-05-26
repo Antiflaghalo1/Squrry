@@ -179,6 +179,16 @@ export default function ScanView({ onBack, user }) {
       setGpsStatus('failed')
     }
 
+    const cached = localStorage.getItem('squrry_last_coords')
+    if (cached) {
+      try {
+        const c = JSON.parse(cached)
+        if (Date.now() - c.ts < 600000) {
+          handlePosition({ coords: { latitude: c.lat, longitude: c.lng } })
+        }
+      } catch {}
+    }
+
     navigator.geolocation.getCurrentPosition(
       handlePosition,
       () => setGpsStatus('failed'),

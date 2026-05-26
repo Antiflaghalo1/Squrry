@@ -146,6 +146,22 @@ export default function App() {
     return () => subscription.unsubscribe()
   }, [])
 
+  useEffect(() => {
+    if (!navigator.geolocation) return
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        const coords = {
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          ts: Date.now()
+        }
+        localStorage.setItem('squrry_last_coords', JSON.stringify(coords))
+      },
+      () => {},
+      { enableHighAccuracy: true, timeout: 5000, maximumAge: 30000 }
+    )
+  }, [])
+
   const navTo = (newView) => {
     viewStack.current.push(view)
     window.history.pushState({}, '')
