@@ -14,7 +14,7 @@ const CARDS = [
   {
     emoji: '🐿️',
     title: "You're building something bigger",
-    body: 'Every scan helps your whole community shop smarter. Welcome to BasketSplit.',
+    body: 'Every scan helps your whole community shop smarter. Welcome to Squrry.',
   },
 ]
 

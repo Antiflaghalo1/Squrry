@@ -9,15 +9,15 @@ export default function LegalView({ type, onBack }) {
           <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 28 }}>Last updated May 2026</p>
 
           <Section title="1. Acceptance of Terms">
-            By accessing or using BasketSplit, you agree to be bound by these Terms of Service. If you do not agree, do not use the service.
+            By accessing or using Squrry, you agree to be bound by these Terms of Service. If you do not agree, do not use the service.
           </Section>
 
           <Section title="2. Description of Service">
-            BasketSplit is a crowdsourced grocery price tracking application. Users voluntarily submit and view grocery prices at local stores to help their community make informed purchasing decisions.
+            Squrry is a crowdsourced grocery price tracking application. Users voluntarily submit and view grocery prices at local stores to help their community make informed purchasing decisions.
           </Section>
 
           <Section title="3. User-Submitted Content">
-            Prices and product information on BasketSplit are reported by community members and are not guaranteed to be accurate, current, or complete. BasketSplit does not verify submitted prices. Always confirm prices in store before making purchasing decisions.
+            Prices and product information on Squrry are reported by community members and are not guaranteed to be accurate, current, or complete. Squrry does not verify submitted prices. Always confirm prices in store before making purchasing decisions.
           </Section>
 
           <Section title="4. Account Responsibilities">
@@ -29,20 +29,20 @@ export default function LegalView({ type, onBack }) {
           </Section>
 
           <Section title="6. Disclaimer of Warranties">
-            BasketSplit is provided "as is" and "as available" without warranties of any kind, express or implied. We do not warrant that the service will be uninterrupted, error-free, or that any prices or information are accurate. Your use of the service is at your own risk.
+            Squrry is provided "as is" and "as available" without warranties of any kind, express or implied. We do not warrant that the service will be uninterrupted, error-free, or that any prices or information are accurate. Your use of the service is at your own risk.
           </Section>
 
           <Section title="7. Limitation of Liability">
-            To the fullest extent permitted by law, BasketSplit and its operators shall not be liable for any indirect, incidental, special, consequential, or punitive damages arising from your use of the service, including reliance on community-submitted price data.
+            To the fullest extent permitted by law, Squrry and its operators shall not be liable for any indirect, incidental, special, consequential, or punitive damages arising from your use of the service, including reliance on community-submitted price data.
           </Section>
 
           <Section title="8. Changes to Terms">
-            We may update these Terms at any time. Continued use of BasketSplit after changes are posted constitutes your acceptance of the revised Terms. We will make reasonable efforts to notify users of significant changes.
+            We may update these Terms at any time. Continued use of Squrry after changes are posted constitutes your acceptance of the revised Terms. We will make reasonable efforts to notify users of significant changes.
           </Section>
 
           <Section title="9. Contact">
             Questions about these Terms? Reach us at{' '}
-            <a href="mailto:support@basketsplit.com" style={{ color: 'var(--green)' }}>support@basketsplit.com</a>.
+            <a href="mailto:support@squrry.app" style={{ color: 'var(--green)' }}>support@squrry.app</a>.
           </Section>
         </div>
       )}
@@ -73,12 +73,12 @@ export default function LegalView({ type, onBack }) {
           </Section>
 
           <Section title="6. Cookies and Local Storage">
-            BasketSplit uses local storage to keep you signed in between sessions and to cache price data for faster load times. We do not use third-party tracking cookies or advertising cookies.
+            Squrry uses local storage to keep you signed in between sessions and to cache price data for faster load times. We do not use third-party tracking cookies or advertising cookies.
           </Section>
 
           <Section title="7. Contact">
             Questions about this Privacy Policy? Reach us at{' '}
-            <a href="mailto:privacy@basketsplit.com" style={{ color: 'var(--green)' }}>privacy@basketsplit.com</a>.
+            <a href="mailto:privacy@squrry.app" style={{ color: 'var(--green)' }}>privacy@squrry.app</a>.
           </Section>
         </div>
       )}

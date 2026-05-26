@@ -351,7 +351,7 @@ export default function App() {
   }
 
   async function handleSignOut() {
-    if (!window.confirm("Sign out of BasketSplit? You'll need to log back in to submit prices.")) return
+    if (!window.confirm("Sign out of Squrry? You'll need to log back in to submit prices.")) return
     await supabase.auth.signOut()
   }
 
@@ -381,9 +381,9 @@ export default function App() {
     <div className="app">
       <header className="header">
         <div className="header-inner">
-          <div className="logo">🛒</div>
+          <img src="/squrry-logo.png" alt="Squrry" style={{ height: 32, width: 'auto' }} />
           <div className="header-text">
-            <h1>BasketSplit</h1>
+            <h1>Squrry</h1>
             <p className="tagline">IE's smartest grocery optimizer</p>
           </div>
         </div>
@@ -403,8 +403,8 @@ export default function App() {
             <Menu size={22} />
           </button>
           <div className="topbar-wordmark">
-            <div className="logo">🛒</div>
-            BasketSplit
+            <img src="/squrry-logo.png" alt="Squrry" style={{ height: 32, width: 'auto' }} />
+            Squrry
           </div>
           <div className="topbar-actions">
             {queueCount > 0 && (

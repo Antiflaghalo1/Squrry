@@ -1,0 +1,24 @@
+{
+  "name": "Squrry",
+  "short_name": "Squrry",
+  "description": "Smarter shopping. Real savings.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#234D34",
+  "theme_color": "#234D34",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/squrry-icon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/squrry-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

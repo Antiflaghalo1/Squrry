@@ -55,6 +55,12 @@ function timeAgo(ts) {
 }
 
 export default function ScanView({ onBack, user }) {
+  const oldStore = localStorage.getItem('basketsplit_last_store')
+  if (oldStore) {
+    localStorage.setItem('squrry_last_store', oldStore)
+    localStorage.removeItem('basketsplit_last_store')
+  }
+
   const html5QrRef = useRef(null)
   const shelfVideoRef = useRef(null)
   const shelfStreamRef = useRef(null)
@@ -69,7 +75,7 @@ export default function ScanView({ onBack, user }) {
   const [price, setPrice] = useState('')
   const [priceError, setPriceError] = useState('')
   const [storeId, setStoreId] = useState(
-    localStorage.getItem('basketsplit_last_store') || ''
+    localStorage.getItem('squrry_last_store') || ''
   )
   const [errorMsg, setErrorMsg] = useState('')
   const [customStores, setCustomStores] = useState(() => getCustomStores())
@@ -555,7 +561,7 @@ export default function ScanView({ onBack, user }) {
     const updated = [...customStores, store]
     setCustomStores(updated)
     setStoreId(id)
-    localStorage.setItem('basketsplit_last_store', id)
+    localStorage.setItem('squrry_last_store', id)
     setNewName('')
     setNewCity('')
     setNewAddress('')
@@ -579,7 +585,7 @@ export default function ScanView({ onBack, user }) {
     }
     const finalName = productName.trim() || `Item #${barcode}`
     if (!productName.trim()) setProductName(finalName)
-    localStorage.setItem('basketsplit_last_store', storeId)
+    localStorage.setItem('squrry_last_store', storeId)
     await upsertProduct({
       upc: barcode,
       name: finalName,
@@ -617,7 +623,7 @@ export default function ScanView({ onBack, user }) {
     setPriceError('')
     setLookingUp(false)
     setExistingPrices([])
-    setStoreId(localStorage.getItem('basketsplit_last_store') || stores[0]?.id || '')
+    setStoreId(localStorage.getItem('squrry_last_store') || stores[0]?.id || '')
     setShowAddStore(false)
     setSavedFlash(false)
     setPhotoCapturing(false)

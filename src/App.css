@@ -5,7 +5,7 @@ html {
 
 :root {
   --green: #4A7C59;        /* olive green - warm, earthy */
-  --green-dark: #3B6E3B;   /* richer green for prices/emphasis */
+  --green-dark: #234D34;   /* richer green for prices/emphasis */
   --green-light: #6A9E75;  /* lighter olive for hovers */
   --green-pale: #EEF4EC;   /* very pale sage for selected states */
   --orange: #C8622A;       /* terracotta - warm, not Halloween */
@@ -15,7 +15,7 @@ html {
   --text-muted: #7A6E5F;   /* warm grey-brown */
   --border: #E0D9CE;       /* warm cream border */
   --card-bg: #FDFAF6;      /* warm off-white card background */
-  --bg: #F5F0E8;           /* warm parchment background */
+  --bg: #FBF6ED;           /* warm parchment background */
 }
 
 body {

@@ -400,7 +400,7 @@ export default function ShoppingModeView({ store, items, onBack, user }) {
     }).length
 
     async function share() {
-      const text = `I just saved $${savings.toFixed(2)} on groceries at ${store?.name ?? 'the store'} using BasketSplit! 🛒`
+      const text = `I just saved $${savings.toFixed(2)} on groceries at ${store?.name ?? 'the store'} using Squrry! 🐿️`
       if (navigator.share) {
         try { await navigator.share({ text }) } catch {}
       } else {

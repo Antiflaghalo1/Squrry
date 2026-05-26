@@ -13,7 +13,7 @@ export default function HamburgerDrawer({ isOpen, onClose, budget, avatarUrl, fi
         <button className="drawer-close-btn" onClick={onClose}>✕</button>
 
         <div className="drawer-header">
-          <button className="drawer-home-btn" onClick={() => { onHome?.() }}>BasketSplit 🛒</button>
+          <button className="drawer-home-btn" onClick={() => { onHome?.() }}>Squrry 🐿️</button>
         </div>
 
         <div className="drawer-profile">

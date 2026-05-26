@@ -1,6 +1,12 @@
 import { supabase } from '../lib/supabase'
 
-const KEY = 'basketsplit_custom_stores'
+const KEY = 'squrry_custom_stores'
+
+const oldStores = localStorage.getItem('basketsplit_custom_stores')
+if (oldStores) {
+  localStorage.setItem('squrry_custom_stores', oldStores)
+  localStorage.removeItem('basketsplit_custom_stores')
+}
 
 export function getCustomStores() {
   try {

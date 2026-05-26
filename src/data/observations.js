@@ -1,7 +1,13 @@
 import { supabase } from '../lib/supabase'
 import normalizeCategory from '../utils/normalizeCategory'
 
-const OBS_KEY = 'basketsplit_observations'
+const OBS_KEY = 'squrry_observations'
+
+const oldObs = localStorage.getItem('basketsplit_observations')
+if (oldObs) {
+  localStorage.setItem('squrry_observations', oldObs)
+  localStorage.removeItem('basketsplit_observations')
+}
 
 export async function addObservation(obs, userId) {
   const dbRow = {

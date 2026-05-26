@@ -54,7 +54,7 @@ export default function AuthView({ onBack, gated = false, onLegal }) {
       <p style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 24 }}>
         {mode === 'signin'
           ? 'Sign in to save your price submissions and build your reputation.'
-          : 'Join BasketSplit to submit prices and help your community save money.'}
+          : 'Join Squrry to submit prices and help your community save money.'}
       </p>
 
       {mode === 'signup' && (
