@@ -104,6 +104,7 @@ export default function ScanView({ onBack, user }) {
   const [torchSupported, setTorchSupported] = useState(false)
   const [detectedStore, setDetectedStore] = useState(null)
   const watchIdRef = useRef(null)
+  const pollIntervalRef = useRef(null)
   const detectedStoreRef = useRef(null)
 
   function runGpsDetection() {
@@ -154,6 +155,7 @@ export default function ScanView({ onBack, user }) {
       storesRef.current = data
       setStoreId(prev => prev || data[0]?.id || '')
       runGpsDetection()
+      pollIntervalRef.current = setInterval(runGpsDetection, 10000)
       intervalId = setInterval(runGpsDetection, 20000)
     })
 
@@ -161,6 +163,7 @@ export default function ScanView({ onBack, user }) {
       if (watchIdRef.current !== null) {
         navigator.geolocation.clearWatch(watchIdRef.current)
       }
+      clearInterval(pollIntervalRef.current)
       if (intervalId !== null) clearInterval(intervalId)
     }
   }, [])
@@ -193,6 +196,7 @@ export default function ScanView({ onBack, user }) {
       { facingMode: 'environment' },
       {
         fps: 15,
+        qrbox: { width: 280, height: 280 },
         aspectRatio: 1.777,
         disableFlip: false,
         focusMode: 'continuous',
@@ -603,7 +607,17 @@ export default function ScanView({ onBack, user }) {
             id="squrry-scanner-region"
             style={{ width: '100%', height: '100%', position: 'absolute', inset: 0 }}
           />
-          <div className="scan-overlay" style={{ position: 'relative', zIndex: 2, pointerEvents: 'none' }}>
+          <div style={{
+            position: 'absolute',
+            top: 12,
+            left: 12,
+            right: 12,
+            zIndex: 10,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 8,
+            pointerEvents: 'auto'
+          }}>
             {detectedStore && (
               <div style={{
                 background: 'var(--green-pale)',
@@ -626,6 +640,14 @@ export default function ScanView({ onBack, user }) {
                 >×</button>
               </div>
             )}
+            <button
+              style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 13, textDecoration: 'underline', cursor: 'pointer', padding: '4px 0', pointerEvents: 'auto' }}
+              onClick={runGpsDetection}
+            >
+              📍 Change store
+            </button>
+          </div>
+          <div className="scan-overlay">
             <div className="scan-frame-box">
               <div className="scan-corner-tl" />
               <div className="scan-corner-tr" />
@@ -634,12 +656,6 @@ export default function ScanView({ onBack, user }) {
               <div className="scan-laser" />
             </div>
             <p className="scan-hint">Align barcode within the frame</p>
-            <button
-              style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 13, textDecoration: 'underline', cursor: 'pointer', padding: '4px 0', pointerEvents: 'auto' }}
-              onClick={runGpsDetection}
-            >
-              📍 Change store
-            </button>
             <button
               className="scan-manual-btn"
               style={{ pointerEvents: 'auto' }}
