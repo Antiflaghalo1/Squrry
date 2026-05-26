@@ -658,6 +658,14 @@ export default function ScanView({ onBack, user }) {
           </div>
           <div className="scan-overlay">
             <p className="scan-hint">Align barcode within the frame</p>
+            <div className="scan-laser" style={{
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              width: 280,
+              pointerEvents: 'none'
+            }} />
             <button
               className="scan-manual-btn"
               style={{ pointerEvents: 'auto' }}
