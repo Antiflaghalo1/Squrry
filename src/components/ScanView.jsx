@@ -103,11 +103,15 @@ export default function ScanView({ onBack, user }) {
   const [torchOn, setTorchOn] = useState(false)
   const [torchSupported, setTorchSupported] = useState(false)
   const [detectedStore, setDetectedStore] = useState(null)
+  const watchIdRef = useRef(null)
 
   function runGpsDetection() {
     if (!navigator.geolocation) return
+    if (watchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(watchIdRef.current)
+    }
     setGpsStatus('detecting')
-    navigator.geolocation.getCurrentPosition(
+    watchIdRef.current = navigator.geolocation.watchPosition(
       (pos) => {
         const { latitude, longitude } = pos.coords
         setGpsCoords({ lat: latitude, lng: longitude })
@@ -138,7 +142,7 @@ export default function ScanView({ onBack, user }) {
     )
   }
 
-  // Load stores from Supabase, then run GPS detection once stores are available
+  // Load stores from Supabase, then start continuous GPS watch
   useEffect(() => {
     getAllStores().then(data => {
       setStores(data)
@@ -147,11 +151,11 @@ export default function ScanView({ onBack, user }) {
       runGpsDetection()
     })
 
-    function handleVisibilityChange() {
-      if (document.visibilityState === 'visible') runGpsDetection()
+    return () => {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current)
+      }
     }
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
   }, [])
 
   async function toggleTorch() {
