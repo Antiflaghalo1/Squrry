@@ -1,198 +1,42 @@
 import { supabase } from '../lib/supabase';
 
-export async function fetchAttributeGroups(normalizedCategory, subcategory) {
-  const { data: products } = await supabase
-    .from('products')
-    .select('upc, name, brand, image_url, subcategory, attributes')
-    .eq('normalized_category', normalizedCategory)
-    .eq('subcategory', subcategory)
-    .not('attributes', 'eq', '{}');
-
-  if (!products || products.length === 0) return [];
-
-  const upcList = products.map(p => p.upc);
-
-  const { data: observations } = await supabase
-    .from('observations')
-    .select('barcode, price, store_id, created_at')
-    .in('barcode', upcList)
-    .eq('voided', false)
-    .order('created_at', { ascending: false });
-
-  const latestObs = {};
-  for (const obs of observations ?? []) {
-    if (!latestObs[obs.barcode]) {
-      latestObs[obs.barcode] = obs;
-    }
-  }
-
-  const groups = {};
-
-  for (const product of products) {
-    const parts = Object.keys(product.attributes).sort().map(k => {
-      const val = product.attributes[k]?.value;
-      return val !== undefined && val !== null ? val : null;
-    }).filter(Boolean);
-    const key = subcategory + '|' + parts.join('|');
-
-    const label = parts.map(v =>
-      String(v).charAt(0).toUpperCase() + String(v).slice(1)
-    ).join(' · ');
-
-    const obs = latestObs[product.upc];
-    if (!obs) continue;
-
-    const count = product.attributes?.count?.value
-      ?? product.attributes?.slice_count?.value;
-    const sizeOz = product.attributes?.size_oz?.value;
-    let unitPrice = null;
-    let unitLabel = null;
-    if (count && Number(count) > 0) {
-      unitPrice = parseFloat((obs.price / Number(count)).toFixed(4));
-      unitLabel = 'per unit';
-    } else if (sizeOz && Number(sizeOz) > 0) {
-      unitPrice = parseFloat((obs.price / Number(sizeOz)).toFixed(4));
-      unitLabel = 'per oz';
-    }
-
-    if (!groups[key]) {
-      groups[key] = {
-        key,
-        label,
-        productCount: 0,
-        storeIds: new Set(),
-        lowestPrice: obs.price,
-        imageUrl: product.image_url || null,
-        unitPrice,
-        unitLabel,
-        freshestScan: obs.created_at,
-      };
-    }
-
-    const g = groups[key];
-    g.productCount += 1;
-    g.storeIds.add(obs.store_id);
-
-    if (obs.price < g.lowestPrice) {
-      g.lowestPrice = obs.price;
-      g.imageUrl = product.image_url || null;
-      g.unitPrice = unitPrice;
-      g.unitLabel = unitLabel;
-    }
-
-    if (obs.created_at > g.freshestScan) {
-      g.freshestScan = obs.created_at;
-    }
-  }
-
-  return Object.values(groups)
-    .sort((a, b) => a.lowestPrice - b.lowestPrice)
-    .map(g => ({
-      key: g.key,
-      label: g.label,
-      productCount: g.productCount,
-      storeCount: g.storeIds.size,
-      lowestPrice: Number(g.lowestPrice).toFixed(2),
-      imageUrl: g.imageUrl,
-      unitPrice: g.unitPrice,
-      unitLabel: g.unitLabel,
-      freshestScan: g.freshestScan,
-    }));
+export async function fetchAttributeGroups() {
+  console.warn('[categoryService] fetchAttributeGroups is deprecated. Use fetchSubcategoryDrill.');
+  return [];
 }
 
-export async function fetchGroupResults(normalizedCategory, comparableKey) {
-  const { data: products } = await supabase
-    .from('products')
-    .select('upc, name, brand, subcategory, attributes')
-    .eq('normalized_category', normalizedCategory)
-    .not('attributes', 'eq', '{}');
+export async function fetchGroupResults() {
+  console.warn('[categoryService] fetchGroupResults is deprecated. Use fetchSubcategoryDrill.');
+  return [];
+}
 
-  if (!products || products.length === 0) return [];
-
-  const matchedProducts = products.filter(product => {
-    const parts = Object.keys(product.attributes).sort().map(k => {
-      const val = product.attributes[k]?.value;
-      return val !== undefined && val !== null ? val : null;
-    }).filter(Boolean);
-    const key = product.subcategory + '|' + parts.join('|');
-    return key === comparableKey;
-  });
-
-  if (matchedProducts.length === 0) return [];
-
-  const matchedUpcs = matchedProducts.map(p => p.upc);
-
-  const { data: observations } = await supabase
-    .from('observations')
-    .select('id, barcode, price, store_id, created_at, promo_type')
-    .in('barcode', matchedUpcs)
-    .eq('voided', false)
-    .order('price', { ascending: true });
-
-  if (!observations || observations.length === 0) return [];
-
-  const uniqueStoreIds = [...new Set(observations.map(o => o.store_id))];
-
-  const { data: stores } = await supabase
-    .from('stores')
-    .select('id, name, location, city, color')
-    .in('id', uniqueStoreIds);
-
-  const storeMap = {};
-  for (const store of stores ?? []) {
-    storeMap[store.id] = store;
-  }
-
-  const bestPerPair = new Map();
-  for (const obs of observations) {
+function dedupeObservationsByBarcodeStore(observations) {
+  // Keep newest observation per (barcode, store_id) pair.
+  // Input observations should already be sorted by created_at desc;
+  // the first occurrence of a key wins.
+  const map = new Map();
+  for (const obs of observations || []) {
     const key = `${obs.barcode}|${obs.store_id}`;
-    const existing = bestPerPair.get(key);
-    if (!existing || obs.created_at > existing.created_at) {
-      bestPerPair.set(key, obs);
-    }
+    if (!map.has(key)) map.set(key, obs);
   }
-
-  return Array.from(bestPerPair.values())
-    .sort((a, b) => a.price - b.price)
-    .map(obs => {
-      const prod = matchedProducts.find(p => p.upc === obs.barcode);
-      const count = prod?.attributes?.count?.value
-        ?? prod?.attributes?.slice_count?.value;
-      const sizeOz = prod?.attributes?.size_oz?.value;
-      let unitPrice = null, unitLabel = null;
-      if (count && Number(count) > 0) {
-        unitPrice = parseFloat((obs.price / Number(count)).toFixed(4));
-        unitLabel = 'per unit';
-      } else if (sizeOz && Number(sizeOz) > 0) {
-        unitPrice = parseFloat((obs.price / Number(sizeOz)).toFixed(4));
-        unitLabel = 'per oz';
-      }
-      return {
-        id: obs.id,
-        barcode: obs.barcode,
-        productName: prod.name,
-        brand: prod.brand,
-        imageUrl: prod.image_url || null,
-        price: Number(obs.price).toFixed(2),
-        unitPrice,
-        unitLabel,
-        store: storeMap[obs.store_id] || null,
-        createdAt: obs.created_at,
-        promoType: obs.promo_type,
-      };
-    });
+  return Array.from(map.values());
 }
 
 export async function fetchUntaggedItems(normalizedCategory) {
-  const { data: products } = await supabase
+  const { data: allProducts } = await supabase
     .from('products')
-    .select('upc, name, brand, image_url, subcategory, attributes')
-    .eq('normalized_category', normalizedCategory)
-    .or('subcategory.is.null,attributes.eq.{}');
+    .select('upc, name, brand, image_url, subcategory, variant, size_grade, package, attributes')
+    .eq('normalized_category', normalizedCategory);
 
-  if (!products || products.length === 0) return [];
+  if (!allProducts || allProducts.length === 0) return [];
 
-  const upcList = products.map(p => p.upc);
+  const untagged = (allProducts || []).filter(p =>
+    !p.subcategory || !p.variant || !p.size_grade || !p.package
+  );
+
+  if (untagged.length === 0) return [];
+
+  const upcList = untagged.map(p => p.upc);
 
   const { data: observations } = await supabase
     .from('observations')
@@ -225,7 +69,7 @@ export async function fetchUntaggedItems(normalizedCategory) {
 
   const results = [];
 
-  for (const product of products) {
+  for (const product of untagged) {
     const productObs = Array.from(newestPerPair.values()).filter(
       o => o.barcode === product.upc
     );
@@ -251,13 +95,13 @@ export async function fetchUntaggedItems(normalizedCategory) {
 export async function fetchDepartmentBrowse(normalizedCategory) {
   const { data: allProducts } = await supabase
     .from('products')
-    .select('upc, subcategory, attributes, image_url')
+    .select('upc, subcategory, image_url, variant, size_grade, package, attributes')
     .eq('normalized_category', normalizedCategory);
 
   if (!allProducts) return { subcategories: [], untaggedCount: 0 };
 
-  const tagged = allProducts.filter(p =>
-    p.subcategory && p.attributes && Object.keys(p.attributes).length > 0
+  const tagged = (allProducts || []).filter(p =>
+    p.subcategory && p.variant && p.size_grade && p.package
   );
   const untaggedCount = allProducts.length - tagged.length;
 
@@ -315,165 +159,197 @@ export async function fetchDepartmentBrowse(normalizedCategory) {
 }
 
 export async function fetchSubcategoryDrill(normalizedCategory, subcategory, filters) {
+  // STEP 0 — Normalize filters
+  const safeFilters = {
+    attributes: [],
+    variant: null,
+    size_grade: null,
+    package: null,
+    ...(filters || {})
+  };
+  safeFilters.attributes = Array.isArray(safeFilters.attributes)
+    ? safeFilters.attributes
+    : [];
+
+  // STEP 1 — Fetch schema
   const { data: schemaRow } = await supabase
     .from('category_schemas')
     .select('schema')
     .eq('subcategory', subcategory)
     .maybeSingle();
-
   if (!schemaRow) return null;
   const schema = schemaRow.schema;
 
-  const schemaEntries = Object.entries(schema)
-    .sort(([, a], [, b]) => (a.order ?? 99) - (b.order ?? 99));
+  // STEP 2 — Build drill order from schema
+  const drillOrder = Object.entries(schema)
+    .sort(([, a], [, b]) => (a.order ?? 99) - (b.order ?? 99))
+    .map(([key, def]) => ({ key, def }));
 
-  const nextEntry = schemaEntries.find(
-    ([k, def]) => def.required && !(k in filters)
-  );
-  const nextAttribute = nextEntry
-    ? { key: nextEntry[0], def: nextEntry[1] }
-    : null;
+  // STEP 3 — Find next unfilled dimension
+  const nextDim = drillOrder.find(({ key }) => {
+    if (key === 'attributes') {
+      return safeFilters.attributes.length === 0;
+    }
+    return !safeFilters[key];
+  }) || null;
 
-  const { data: rawProducts } = await supabase
+  // STEP 4 — Fetch products matching current filters
+  let q = supabase
     .from('products')
-    .select('upc, name, brand, image_url, subcategory, attributes')
+    .select('upc, name, brand, image_url, subcategory, variant, size_grade, package, attributes')
     .eq('normalized_category', normalizedCategory)
-    .eq('subcategory', subcategory)
-    .not('attributes', 'eq', '{}');
+    .eq('subcategory', subcategory);
+  if (safeFilters.variant)    q = q.eq('variant',    safeFilters.variant);
+  if (safeFilters.size_grade) q = q.eq('size_grade', safeFilters.size_grade);
+  if (safeFilters.package)    q = q.eq('package',    safeFilters.package);
+  const { data: rawProducts } = await q;
+  let products = rawProducts || [];
 
-  const products = (rawProducts || []).filter(p =>
-    Object.entries(filters).every(([k, v]) =>
-      p.attributes?.[k]?.value === v
-    )
-  );
-
-  const { data: observations } = await supabase
-    .from('observations')
-    .select('id, barcode, price, store_id, created_at, promo_type')
-    .in('barcode', products.map(p => p.upc))
-    .eq('voided', false)
-    .order('created_at', { ascending: false });
-
-  const newestPerPair = new Map();
-  const latestByBarcode = {};
-  for (const o of observations ?? []) {
-    const key = `${o.barcode}|${o.store_id}`;
-    if (!newestPerPair.has(key)) {
-      newestPerPair.set(key, o);
-    }
-    if (!latestByBarcode[o.barcode]) {
-      latestByBarcode[o.barcode] = o;
-    }
+  if (safeFilters.attributes.length > 0) {
+    products = products.filter(p =>
+      safeFilters.attributes.every(attr => {
+        if (attr === 'conventional') {
+          // 'Conventional' = no qualifier attributes set.
+          // Empty array is the canonical conventional state; we also accept
+          // an explicit 'conventional' string for robustness.
+          return !p.attributes
+            || p.attributes.length === 0
+            || p.attributes.includes('conventional');
+        }
+        return Array.isArray(p.attributes) && p.attributes.includes(attr);
+      })
+    );
   }
 
-  let distinctNextValues = [];
-  let productResults = [];
+  // STEP 5 — Fetch observations for the filtered products in one batch
+  const upcs = products.map(p => p.upc);
+  let observations = [];
+  if (upcs.length > 0) {
+    const { data: obs } = await supabase
+      .from('observations')
+      .select('id, barcode, price, store_id, created_at, promo_type')
+      .in('barcode', upcs)
+      .eq('voided', false)
+      .order('created_at', { ascending: false });
+    observations = obs || [];
+  }
 
-  if (nextAttribute) {
-    const group = {};
-    for (const product of products) {
-      const val = product.attributes?.[nextAttribute.key]?.value;
-      if (val === undefined || val === null) continue;
+  // STEP 5b — Build deduped observations ONCE.
+  // This is critical for price consistency between option tiles and leaf cards.
+  const dedupedObservations = dedupeObservationsByBarcodeStore(observations);
 
-      if (!group[val]) {
-        group[val] = {
-          value: val,
-          productCount: 0,
-          storeIds: new Set(),
-          lowestPrice: Infinity,
-          unitPrice: null,
-          unitLabel: null,
-          imageUrl: null,
-        };
+  // STEP 6 — If nextDim exists, build schema-driven options
+  if (nextDim) {
+    const options = nextDim.def.options.map(opt => {
+      const matchingProducts = products.filter(p => {
+        if (nextDim.key === 'attributes') {
+          if (opt.value === 'conventional') {
+            return !p.attributes
+              || p.attributes.length === 0
+              || p.attributes.includes('conventional');
+          }
+          return Array.isArray(p.attributes) && p.attributes.includes(opt.value);
+        }
+        return p[nextDim.key] === opt.value;
+      });
+
+      const matchingUpcs = new Set(matchingProducts.map(p => p.upc));
+      const matchingObs = dedupedObservations.filter(o => matchingUpcs.has(o.barcode));
+
+      let lowestPrice = Infinity;
+      let lowestProduct = null;
+      const storeIds = new Set();
+      for (const o of matchingObs) {
+        storeIds.add(o.store_id);
+        const priceNum = Number(o.price);
+        if (priceNum < lowestPrice) {
+          lowestPrice = priceNum;
+          lowestProduct = matchingProducts.find(p => p.upc === o.barcode);
+        }
       }
 
-      const g = group[val];
-      g.productCount += 1;
-
-      const productObsList = Array.from(newestPerPair.values()).filter(
-        o => o.barcode === product.upc
-      );
-
-      for (const o of productObsList) {
-        g.storeIds.add(o.store_id);
-
-        if (o.price < g.lowestPrice) {
-          g.lowestPrice = o.price;
-          g.imageUrl = product.image_url;
-
-          const count = product.attributes?.count?.value
-            ?? product.attributes?.slice_count?.value;
-          const sizeOz = product.attributes?.size_oz?.value;
-          g.unitPrice = null;
-          g.unitLabel = null;
-          if (count && Number(count) > 0) {
-            g.unitPrice = parseFloat((o.price / Number(count)).toFixed(4));
-            g.unitLabel = 'per unit';
-          } else if (sizeOz && Number(sizeOz) > 0) {
-            g.unitPrice = parseFloat((o.price / Number(sizeOz)).toFixed(4));
-            g.unitLabel = 'per oz';
+      let unitPrice = null, unitLabel = null;
+      if (lowestProduct && lowestProduct.package && lowestPrice !== Infinity) {
+        const m = lowestProduct.package.match(/^(\d+)_ct$/);
+        if (m) {
+          const ct = Number(m[1]);
+          if (ct > 0) {
+            unitPrice = parseFloat((lowestPrice / ct).toFixed(4));
+            unitLabel = 'per unit';
           }
         }
       }
-    }
 
-    distinctNextValues = Object.values(group)
-      .filter(g => g.lowestPrice !== Infinity)
-      .sort((a, b) => a.lowestPrice - b.lowestPrice)
-      .map(g => ({
-        value: g.value,
-        productCount: g.productCount,
-        storeCount: g.storeIds.size,
-        lowestPrice: Number(g.lowestPrice).toFixed(2),
-        unitPrice: g.unitPrice,
-        unitLabel: g.unitLabel,
-        imageUrl: g.imageUrl,
-      }));
-  } else {
-    const uniqueStoreIds = [...new Set(
-      Array.from(newestPerPair.values()).map(o => o.store_id)
-    )];
+      return {
+        value: opt.value,
+        label: opt.label,
+        productCount: matchingProducts.length,
+        storeCount: storeIds.size,
+        lowestPrice: lowestPrice !== Infinity
+          ? Number(lowestPrice).toFixed(2)
+          : null,
+        unitPrice,
+        unitLabel
+      };
+    });
 
+    return {
+      schema,
+      nextDimension: { key: nextDim.key, def: nextDim.def },
+      options,
+      productResults: []
+    };
+  }
+
+  // STEP 7 — All dimensions filled; build productResults
+  const uniqueStoreIds = [...new Set(dedupedObservations.map(o => o.store_id))];
+  let storeMap = {};
+  if (uniqueStoreIds.length > 0) {
     const { data: stores } = await supabase
       .from('stores')
       .select('id, name, location, city, color')
       .in('id', uniqueStoreIds);
-
-    const storeMap = {};
-    for (const store of stores ?? []) {
-      storeMap[store.id] = store;
-    }
-
-    productResults = Array.from(newestPerPair.values())
-      .sort((a, b) => a.price - b.price)
-      .map(obs => {
-        const product = products.find(p => p.upc === obs.barcode);
-        const count = product?.attributes?.count?.value
-          ?? product?.attributes?.slice_count?.value;
-        const sizeOz = product?.attributes?.size_oz?.value;
-        let unitPrice = null, unitLabel = null;
-        if (count && Number(count) > 0) {
-          unitPrice = parseFloat((obs.price / Number(count)).toFixed(4));
-          unitLabel = 'per unit';
-        } else if (sizeOz && Number(sizeOz) > 0) {
-          unitPrice = parseFloat((obs.price / Number(sizeOz)).toFixed(4));
-          unitLabel = 'per oz';
-        }
-        return {
-          id: obs.id,
-          barcode: obs.barcode,
-          productName: product?.name,
-          brand: product?.brand,
-          imageUrl: product?.image_url || null,
-          price: Number(obs.price).toFixed(2),
-          unitPrice,
-          unitLabel,
-          store: storeMap[obs.store_id] || null,
-          createdAt: obs.created_at,
-          promoType: obs.promo_type,
-        };
-      });
+    for (const s of (stores || [])) storeMap[s.id] = s;
   }
 
-  return { schema, nextAttribute, distinctNextValues, productResults };
+  const productResults = [];
+  for (const obs of dedupedObservations) {
+    const prod = products.find(p => p.upc === obs.barcode);
+    if (!prod) continue;
+
+    let unitPrice = null, unitLabel = null;
+    if (prod.package) {
+      const m = prod.package.match(/^(\d+)_ct$/);
+      if (m) {
+        const ct = Number(m[1]);
+        if (ct > 0) {
+          unitPrice = parseFloat((Number(obs.price) / ct).toFixed(4));
+          unitLabel = 'per unit';
+        }
+      }
+    }
+
+    productResults.push({
+      id: obs.id,
+      barcode: obs.barcode,
+      productName: prod.name,
+      brand: prod.brand,
+      imageUrl: prod.image_url || null,
+      price: Number(obs.price).toFixed(2),
+      unitPrice,
+      unitLabel,
+      store: storeMap[obs.store_id] || null,
+      createdAt: obs.created_at,
+      promoType: obs.promo_type
+    });
+  }
+
+  productResults.sort((a, b) => Number(a.price) - Number(b.price));
+
+  return {
+    schema,
+    nextDimension: null,
+    options: [],
+    productResults
+  };
 }

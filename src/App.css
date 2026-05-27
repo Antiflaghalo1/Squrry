@@ -1200,3 +1200,60 @@ h1 { font-size: 17px; font-weight: 800; color: var(--text); }
   color: var(--text-muted);
   font-weight: 500;
 }
+
+/* ============================================================
+ * Phase 2.9.5 — Empty lane tiles + first-scan invitation
+ * ============================================================ */
+
+/* Empty lane — drill tile where no products have been scanned yet.
+ * Visible and tappable, but visually signaled as unfilled.
+ */
+.drill-tile-card.empty-lane {
+  opacity: 0.7;
+  border-style: dashed;
+}
+
+.drill-tile-card.empty-lane:hover {
+  opacity: 1;
+  border-style: solid;
+  border-color: var(--green);
+  background: var(--green-pale);
+}
+
+.empty-lane-text {
+  font-style: italic;
+  color: var(--text-muted);
+}
+
+/* First-scan invitation — leaf state when productResults is empty.
+ * Shown when the user has fully drilled but no observations exist
+ * for that exact filter combination.
+ */
+.drill-empty-leaf {
+  text-align: center;
+  padding: 48px 24px;
+  background: var(--card-bg);
+  border: 1.5px dashed var(--border);
+  border-radius: 12px;
+  margin-top: 16px;
+}
+
+.drill-empty-leaf-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+  opacity: 0.8;
+}
+
+.drill-empty-leaf-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0 0 8px 0;
+}
+
+.drill-empty-leaf-body {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin: 0;
+  line-height: 1.5;
+}

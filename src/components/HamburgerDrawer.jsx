@@ -77,7 +77,7 @@ export default function HamburgerDrawer({ isOpen, onClose, budget, avatarUrl, fi
           Sign Out
         </button>
 
-        <div className="drawer-version">v1.0.0</div>
+        <div className="drawer-version">v 2.0.0</div>
       </div>
     </div>
   )

@@ -82,7 +82,12 @@ export default function CategoriesView({ onBack, userId, savedUpcs = new Set(), 
   const [selectedDept, setSelectedDept] = useState(null)
   const [untaggedItems, setUntaggedItems] = useState([])
   const [selectedSubcategory, setSelectedSubcategory] = useState(null);
-  const [attributeFilters, setAttributeFilters] = useState({});
+  const [filters, setFilters] = useState({
+    attributes: [],
+    variant: null,
+    size_grade: null,
+    package: null
+  });
   const [browsingUntagged, setBrowsingUntagged] = useState(false);
   const [departmentBrowse, setDepartmentBrowse] = useState(null);
   const [drillData, setDrillData] = useState(null);
@@ -131,7 +136,7 @@ export default function CategoriesView({ onBack, userId, savedUpcs = new Set(), 
         const d = await fetchSubcategoryDrill(
           selectedDept.normalizedCategory,
           selectedSubcategory,
-          attributeFilters
+          filters
         );
         if (!cancelled) setDrillData(d);
       } else {
@@ -142,14 +147,14 @@ export default function CategoriesView({ onBack, userId, savedUpcs = new Set(), 
       if (!cancelled) setBrowseLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [selectedDept, selectedSubcategory, attributeFilters, browsingUntagged])
+  }, [selectedDept, selectedSubcategory, filters, browsingUntagged])
 
   function handleDeptClick(deptLabel) {
     const mapping = SUBCATEGORY_MAP[deptLabel];
     if (!mapping) return;
     setSelectedDept({ label: deptLabel, ...mapping });
     setSelectedSubcategory(null);
-    setAttributeFilters({});
+    setFilters({ attributes: [], variant: null, size_grade: null, package: null });
     setBrowsingUntagged(false);
     setDepartmentBrowse(null);
     setDrillData(null);
@@ -162,24 +167,42 @@ export default function CategoriesView({ onBack, userId, savedUpcs = new Set(), 
       setUntaggedItems([]);
       return;
     }
-    if (Object.keys(attributeFilters).length > 0) {
-      const schema = drillData?.schema;
-      if (!schema) { setAttributeFilters({}); return; }
-      const sortedKeys = Object.keys(attributeFilters).sort((a, b) =>
-        (schema[a]?.order ?? 99) - (schema[b]?.order ?? 99)
-      );
-      const lastKey = sortedKeys[sortedKeys.length - 1];
-      const next = { ...attributeFilters };
-      delete next[lastKey];
-      setAttributeFilters(next);
-      return;
+
+    // If any filter is set, pop the LATEST one (by schema order)
+    const schema = drillData?.schema;
+    const anyFilterSet =
+      filters.attributes.length > 0
+      || filters.variant
+      || filters.size_grade
+      || filters.package;
+
+    if (schema && anyFilterSet) {
+      const sortedKeys = Object.entries(schema)
+        .sort(([, a], [, b]) => (a.order ?? 99) - (b.order ?? 99))
+        .map(([k]) => k);
+
+      // Walk reverse — pop the deepest filled dimension
+      for (let i = sortedKeys.length - 1; i >= 0; i--) {
+        const key = sortedKeys[i];
+        if (key === 'attributes' && filters.attributes.length > 0) {
+          setFilters(prev => ({ ...prev, attributes: [] }));
+          return;
+        }
+        if (key !== 'attributes' && filters[key]) {
+          setFilters(prev => ({ ...prev, [key]: null }));
+          return;
+        }
+      }
     }
+
     if (selectedSubcategory) {
       setSelectedSubcategory(null);
-      setAttributeFilters({});
+      setFilters({ attributes: [], variant: null, size_grade: null, package: null });
       setDrillData(null);
       return;
     }
+
+    // Back to Level 0
     setSelectedDept(null);
     setDepartmentBrowse(null);
     setExpanded(null);
@@ -187,7 +210,7 @@ export default function CategoriesView({ onBack, userId, savedUpcs = new Set(), 
 
   function handleSubcategoryClick(subcategoryKey) {
     setSelectedSubcategory(subcategoryKey);
-    setAttributeFilters({});
+    setFilters({ attributes: [], variant: null, size_grade: null, package: null });
     setDrillData(null);
   }
 
@@ -196,8 +219,14 @@ export default function CategoriesView({ onBack, userId, savedUpcs = new Set(), 
     setUntaggedItems([]);
   }
 
-  function handleAttributeValueClick(attributeKey, value) {
-    setAttributeFilters(prev => ({ ...prev, [attributeKey]: value }));
+  function handleAttributeValueClick(dimensionKey, value) {
+    setFilters(prev => {
+      if (dimensionKey === 'attributes') {
+        // V1 single-select stored as single-element array
+        return { ...prev, attributes: [value] };
+      }
+      return { ...prev, [dimensionKey]: value };
+    });
   }
 
   async function load() {
@@ -278,11 +307,6 @@ export default function CategoriesView({ onBack, userId, savedUpcs = new Set(), 
     setObsMap(map)
   }
 
-  function formatAttrValue(v) {
-    return String(v).replace(/_/g, ' ').replace(/\b\w/g,
-      c => c.toUpperCase());
-  }
-
   function buildBreadcrumb() {
     const parts = [selectedDept?.label];
     if (selectedSubcategory) {
@@ -290,12 +314,21 @@ export default function CategoriesView({ onBack, userId, savedUpcs = new Set(), 
       parts.push(display?.label || selectedSubcategory);
     }
     if (drillData?.schema) {
-      Object.entries(attributeFilters)
-        .sort(([a], [b]) =>
-          (drillData.schema[a]?.order ?? 99) -
-          (drillData.schema[b]?.order ?? 99)
-        )
-        .forEach(([, v]) => parts.push(formatAttrValue(v)));
+      const schema = drillData.schema;
+      const orderedDims = Object.entries(schema)
+        .sort(([, a], [, b]) => (a.order ?? 99) - (b.order ?? 99));
+
+      for (const [key, def] of orderedDims) {
+        if (key === 'attributes' && filters.attributes.length > 0) {
+          for (const attrValue of filters.attributes) {
+            const opt = (def.options || []).find(o => o.value === attrValue);
+            parts.push(opt?.label || attrValue);
+          }
+        } else if (key !== 'attributes' && filters[key]) {
+          const opt = (def.options || []).find(o => o.value === filters[key]);
+          parts.push(opt?.label || filters[key]);
+        }
+      }
     }
     return parts.filter(Boolean).join(' › ');
   }
@@ -303,8 +336,8 @@ export default function CategoriesView({ onBack, userId, savedUpcs = new Set(), 
   const inDrill = !!selectedDept;
   const inLevel1 = inDrill && !selectedSubcategory && !browsingUntagged;
   const inUntaggedView = inDrill && browsingUntagged;
-  const inDrillView = inDrill && selectedSubcategory && drillData && drillData.nextAttribute;
-  const inFinalView = inDrill && selectedSubcategory && drillData && !drillData.nextAttribute;
+  const inDrillView  = inDrill && selectedSubcategory && drillData && drillData.nextDimension;
+  const inFinalView  = inDrill && selectedSubcategory && drillData && !drillData.nextDimension;
 
   if (expanded && !selectedDept) {
     const group = groups.find(g => g.name === expanded)
@@ -440,9 +473,7 @@ export default function CategoriesView({ onBack, userId, savedUpcs = new Set(), 
                   <div key={sub.key} className="drill-tile-card"
                        onClick={() => handleSubcategoryClick(sub.key)}>
                     <div className="drill-tile-thumb">
-                      {sub.imageUrl
-                        ? <img src={sub.imageUrl} alt="" />
-                        : <div className="drill-tile-placeholder">{display.emoji}</div>}
+                      <div className="drill-tile-placeholder">{display.emoji}</div>
                     </div>
                     <div className="drill-tile-info">
                       <div className="drill-tile-label">{display.label}</div>
@@ -541,36 +572,56 @@ export default function CategoriesView({ onBack, userId, savedUpcs = new Set(), 
             <button className="drill-back-btn" onClick={handleBack}>‹ Back</button>
             <div className="drill-breadcrumb">{buildBreadcrumb()}</div>
             <h2 className="drill-title">
-              Choose {drillData.nextAttribute.def.label}
+              Choose {drillData.nextDimension.def.label}
             </h2>
           </div>
+
           {browseLoading && <div className="drill-loading">Loading…</div>}
-          {!browseLoading && drillData.distinctNextValues.length === 0 && (
-            <div className="drill-empty">No price data yet.</div>
+
+          {!browseLoading && drillData.options.length === 0 && (
+            <div className="drill-empty">No options defined for this dimension.</div>
           )}
-          {!browseLoading && drillData.distinctNextValues.map(opt => {
+
+          {!browseLoading && drillData.options.map(opt => {
             const display = SUBCATEGORY_DISPLAY[selectedSubcategory] || { emoji: '📦' };
+            const isEmptyLane = opt.productCount === 0;
             return (
-              <div key={opt.value} className="drill-tile-card"
-                   onClick={() => handleAttributeValueClick(drillData.nextAttribute.key, opt.value)}>
+              <div
+                key={opt.value}
+                className={`drill-tile-card${isEmptyLane ? ' empty-lane' : ''}`}
+                onClick={() => handleAttributeValueClick(
+                  drillData.nextDimension.key,
+                  opt.value
+                )}
+              >
                 <div className="drill-tile-thumb">
-                  {opt.imageUrl
-                    ? <img src={opt.imageUrl} alt="" />
-                    : <div className="drill-tile-placeholder">{display.emoji}</div>}
+                  <div className="drill-tile-placeholder">{display.emoji}</div>
                 </div>
                 <div className="drill-tile-info">
-                  <div className="drill-tile-label">{formatAttrValue(opt.value)}</div>
-                  <div className="drill-tile-meta">
-                    {opt.productCount} product{opt.productCount !== 1 ? 's' : ''} ·
-                    {' '}{opt.storeCount} store{opt.storeCount !== 1 ? 's' : ''}
-                  </div>
+                  <div className="drill-tile-label">{opt.label}</div>
+                  {isEmptyLane ? (
+                    <div className="drill-tile-meta empty-lane-text">
+                      Not yet scanned
+                    </div>
+                  ) : (
+                    <div className="drill-tile-meta">
+                      {opt.productCount} product{opt.productCount !== 1 ? 's' : ''} ·
+                      {' '}{opt.storeCount} store{opt.storeCount !== 1 ? 's' : ''}
+                    </div>
+                  )}
                 </div>
                 <div className="drill-tile-trailing">
-                  <div className="drill-tile-price">from ${opt.lowestPrice}</div>
-                  {opt.unitPrice && opt.unitLabel && (
-                    <div className="drill-tile-unit">
-                      ${opt.unitPrice.toFixed(2)} {opt.unitLabel}
-                    </div>
+                  {opt.lowestPrice ? (
+                    <>
+                      <div className="drill-tile-price">from ${opt.lowestPrice}</div>
+                      {opt.unitPrice && opt.unitLabel && (
+                        <div className="drill-tile-unit">
+                          ${opt.unitPrice.toFixed(2)} {opt.unitLabel}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="drill-tile-price empty-lane-text">—</div>
                   )}
                 </div>
                 <span className="drill-tile-arrow">›</span>
@@ -588,7 +639,13 @@ export default function CategoriesView({ onBack, userId, savedUpcs = new Set(), 
           </div>
           {browseLoading && <div className="drill-loading">Loading…</div>}
           {!browseLoading && drillData.productResults.length === 0 && (
-            <div className="drill-empty">No results found.</div>
+            <div className="drill-empty-leaf">
+              <div className="drill-empty-leaf-icon">🛒</div>
+              <h3 className="drill-empty-leaf-title">No prices yet</h3>
+              <p className="drill-empty-leaf-body">
+                Be the first to scan {buildBreadcrumb()}!
+              </p>
+            </div>
           )}
           {!browseLoading && drillData.productResults.map(result => {
             const hoursAgo = result.createdAt
