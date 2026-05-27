@@ -121,7 +121,7 @@ export default function ProfileView({ user, firstName, lastName, avatarUrl, onAv
               })
               const data = await res.json()
               console.log('[Test] Push response:', data)
-              alert('Push sent! Check your notifications. Response: ' + JSON.stringify(data))
+              alert('Push: ' + JSON.stringify(data) + ' | User: ' + user?.id + ' | Sub: ' + !!sub)
             } catch(err) {
               console.error('[Test] Error:', err)
               alert('Error: ' + err.message)
