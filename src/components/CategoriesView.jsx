@@ -5,6 +5,7 @@ import { getAllStores } from '../data/storeService'
 import { getCustomStores } from '../data/customStores'
 import { saveItem, removeSavedItem } from '../data/savedItems'
 import ReportModal from './ReportModal'
+import { fetchAttributeGroups, fetchGroupResults } from '../data/categoryService'
 
 const CAT_META = {
   'Meat & Seafood':        { emoji: '🥩', bg: '#FAECE7', dot: '#D85A30' },
@@ -22,6 +23,11 @@ const CAT_META = {
   'Breakfast & Cereal':    { emoji: '🥣', bg: '#FFF3E0', dot: '#E67E22' },
   'Deli & Prepared':       { emoji: '🥗', bg: '#FFF3E0', dot: '#E67E22' },
   'Miscellaneous':         { emoji: '🛒', bg: '#F1EFE8', dot: '#888780' },
+}
+
+const SUBCATEGORY_MAP = {
+  'Dairy & Eggs': { normalizedCategory: 'dairy_eggs', subcategories: ['eggs', 'milk'] },
+  'Bakery':       { normalizedCategory: 'bakery',     subcategories: ['bread'] },
 }
 
 function cardFreshness(products) {
@@ -67,6 +73,12 @@ export default function CategoriesView({ onBack, userId, savedUpcs = new Set(), 
   const [obsMap, setObsMap] = useState({})
   const [expandedPrices, setExpandedPrices] = useState(new Set())
   const [reportTarget, setReportTarget] = useState(null)
+  const [drillLevel, setDrillLevel] = useState(0)
+  const [selectedDept, setSelectedDept] = useState(null)
+  const [attributeGroups, setAttributeGroups] = useState([])
+  const [selectedGroup, setSelectedGroup] = useState(null)
+  const [groupResults, setGroupResults] = useState([])
+  const [groupsLoading, setGroupsLoading] = useState(false)
 
   const allStores = [...stores, ...getCustomStores()]
 
@@ -92,6 +104,66 @@ export default function CategoriesView({ onBack, userId, savedUpcs = new Set(), 
     }
     loadGroupObs(expanded)
   }, [expanded])
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (drillLevel === 1 && selectedDept !== null) {
+        setGroupsLoading(true);
+        const results = await Promise.all(
+          selectedDept.subcategories.map(sub =>
+            fetchAttributeGroups(selectedDept.normalizedCategory, sub)
+          )
+        );
+        const merged = results.flat();
+        if (!cancelled) {
+          setAttributeGroups(merged);
+          setGroupsLoading(false);
+        }
+      } else if (drillLevel === 2 && selectedGroup !== null && selectedDept !== null) {
+        setGroupsLoading(true);
+        const results = await fetchGroupResults(
+          selectedDept.normalizedCategory,
+          selectedGroup.key
+        );
+        if (!cancelled) {
+          setGroupResults(results);
+          setGroupsLoading(false);
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [drillLevel, selectedDept, selectedGroup])
+
+  function handleDeptClick(deptLabel) {
+    const mapping = SUBCATEGORY_MAP[deptLabel];
+    if (!mapping) return;
+    setSelectedDept({ label: deptLabel, ...mapping });
+    setAttributeGroups([]);
+    setGroupResults([]);
+    setSelectedGroup(null);
+    setDrillLevel(1);
+  }
+
+  function handleGroupClick(group) {
+    setSelectedGroup(group);
+    setGroupResults([]);
+    setDrillLevel(2);
+  }
+
+  function handleBackToL1() {
+    setDrillLevel(0);
+    setSelectedDept(null);
+    setAttributeGroups([]);
+    setSelectedGroup(null);
+    setGroupResults([]);
+  }
+
+  function handleBackToL2() {
+    setDrillLevel(1);
+    setSelectedGroup(null);
+    setGroupResults([]);
+  }
 
   async function load() {
     setLoading(true)
@@ -171,7 +243,7 @@ export default function CategoriesView({ onBack, userId, savedUpcs = new Set(), 
     setObsMap(map)
   }
 
-  if (expanded) {
+  if (expanded && drillLevel === 0) {
     const group = groups.find(g => g.name === expanded)
     return (
       <div className="categories-view">
@@ -279,52 +351,153 @@ export default function CategoriesView({ onBack, userId, savedUpcs = new Set(), 
 
   return (
     <div className="categories-view">
-      <button className="back-btn" onClick={onBack}>← Back</button>
-      <div className="cat-page-header">
-        <span className="cat-emoji-pill">🗂️</span>
-        <h2 className="categories-title">Categories</h2>
-        <p className="categories-sub">Built from real community scans</p>
-      </div>
+      {drillLevel === 1 && (
+        <>
+          <div className="drill-header">
+            <button className="drill-back-btn" onClick={handleBackToL1}>
+              ‹ All categories
+            </button>
+            <h2 className="drill-title">{selectedDept?.label}</h2>
+          </div>
 
-      {loading && <p className="recent-loading">Loading categories…</p>}
+          {groupsLoading && <div className="drill-loading">Loading…</div>}
 
-      {!loading && groups.length === 0 && (
-        <div className="recent-empty">
-          <p className="recent-empty-title">Nothing here yet — start scanning! 🐿️</p>
-        </div>
+          {!groupsLoading && attributeGroups.length === 0 && (
+            <div className="drill-empty">No price data yet for this category.</div>
+          )}
+
+          {!groupsLoading && attributeGroups.map(group => (
+            <div key={group.key} className="attr-group-card"
+              onClick={() => handleGroupClick(group)}>
+              <div className="attr-group-left">
+                <div className="attr-group-label">{group.label}</div>
+                <div className="attr-group-meta">
+                  {group.productCount} product{group.productCount !== 1 ? 's' : ''}
+                  {' · '}{group.storeCount} store{group.storeCount !== 1 ? 's' : ''}
+                </div>
+              </div>
+              <div className="attr-group-right">
+                <div className="attr-group-price">from ${group.lowestPrice}</div>
+                {group.unitPrice && group.unitLabel && (
+                  <div className="attr-group-unit">
+                    ${group.unitPrice.toFixed(2)} {group.unitLabel}
+                  </div>
+                )}
+              </div>
+              <span className="attr-group-arrow">›</span>
+            </div>
+          ))}
+        </>
       )}
 
-      {!loading && groups.length > 0 && (
-        <div className="categories-grid">
-          {groups.map(g => {
-            const meta = CAT_META[g.name] || CAT_META['Miscellaneous']
-            const fresh = cardFreshness(g.products)
+      {drillLevel === 2 && (
+        <>
+          <div className="drill-header">
+            <button className="drill-back-btn" onClick={handleBackToL2}>
+              ‹ {selectedDept?.label}
+            </button>
+            <div className="drill-breadcrumb">
+              {selectedDept?.label} › {selectedGroup?.label}
+            </div>
+          </div>
+
+          {groupsLoading && <div className="drill-loading">Loading…</div>}
+
+          {!groupsLoading && groupResults.length === 0 && (
+            <div className="drill-empty">No results found.</div>
+          )}
+
+          {!groupsLoading && groupResults.map(result => {
+            const hoursAgo = result.createdAt
+              ? (Date.now() - new Date(result.createdAt).getTime()) / 36e5
+              : null;
+            const freshnessClass = hoursAgo === null ? 'dot-gray'
+              : hoursAgo < 24 ? 'dot-green'
+              : hoursAgo < 168 ? 'dot-yellow'
+              : 'dot-red';
+            const freshnessLabel = hoursAgo === null ? 'Unknown'
+              : hoursAgo < 1 ? 'Just now'
+              : hoursAgo < 24 ? `${Math.floor(hoursAgo)}h ago`
+              : hoursAgo < 168 ? `${Math.floor(hoursAgo / 24)}d ago`
+              : `${Math.floor(hoursAgo / 168)}w ago`;
             return (
-              <button
-                key={g.name}
-                className="cat-card"
-                onClick={() => setExpanded(g.name)}
-              >
-                <div className="cat-card-top" style={{ background: meta.bg }}>
-                  <span className="cat-card-emoji-fade">{meta.emoji}</span>
-                  <span className="cat-card-emoji-main">{meta.emoji}</span>
-                </div>
-                <div className="cat-card-body">
-                  <div className="cat-card-name">{g.name}</div>
-                  <div className="cat-card-meta">
-                    <span className="cat-card-count">
-                      {g.products.length} item{g.products.length !== 1 ? 's' : ''}
-                    </span>
-                    <span className="cat-card-freshness" style={{ color: fresh.color }}>
-                      <span className="cat-card-dot" style={{ background: fresh.dot }} />
-                      {fresh.label}
-                    </span>
+              <div key={result.id} className="group-result-card">
+                <div className="group-result-left">
+                  <div className="group-result-store">
+                    {result.store?.name || 'Unknown store'}
+                  </div>
+                  {result.store?.city && (
+                    <div className="group-result-location">{result.store.city}</div>
+                  )}
+                  <div className="group-result-freshness">
+                    <span className={`freshness-dot ${freshnessClass}`} />
+                    {freshnessLabel}
                   </div>
                 </div>
-              </button>
-            )
+                <div className="group-result-right">
+                  <div className="group-result-price">${result.price}</div>
+                  {result.unitPrice && result.unitLabel && (
+                    <div className="group-result-unit">
+                      ${result.unitPrice.toFixed(2)} {result.unitLabel}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
           })}
-        </div>
+        </>
+      )}
+
+      {drillLevel === 0 && (
+        <>
+          <button className="back-btn" onClick={onBack}>← Back</button>
+          <div className="cat-page-header">
+            <span className="cat-emoji-pill">🗂️</span>
+            <h2 className="categories-title">Categories</h2>
+            <p className="categories-sub">Built from real community scans</p>
+          </div>
+
+          {loading && <p className="recent-loading">Loading categories…</p>}
+
+          {!loading && groups.length === 0 && (
+            <div className="recent-empty">
+              <p className="recent-empty-title">Nothing here yet — start scanning! 🐿️</p>
+            </div>
+          )}
+
+          {!loading && groups.length > 0 && (
+            <div className="categories-grid">
+              {groups.map(g => {
+                const meta = CAT_META[g.name] || CAT_META['Miscellaneous']
+                const fresh = cardFreshness(g.products)
+                return (
+                  <button
+                    key={g.name}
+                    className="cat-card"
+                    onClick={() => { handleDeptClick(g.name); setExpanded(g.name); }}
+                  >
+                    <div className="cat-card-top" style={{ background: meta.bg }}>
+                      <span className="cat-card-emoji-fade">{meta.emoji}</span>
+                      <span className="cat-card-emoji-main">{meta.emoji}</span>
+                    </div>
+                    <div className="cat-card-body">
+                      <div className="cat-card-name">{g.name}</div>
+                      <div className="cat-card-meta">
+                        <span className="cat-card-count">
+                          {g.products.length} item{g.products.length !== 1 ? 's' : ''}
+                        </span>
+                        <span className="cat-card-freshness" style={{ color: fresh.color }}>
+                          <span className="cat-card-dot" style={{ background: fresh.dot }} />
+                          {fresh.label}
+                        </span>
+                      </div>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </>
       )}
     </div>
   )
