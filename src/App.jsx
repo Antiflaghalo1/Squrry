@@ -179,6 +179,7 @@ export default function App() {
         applicationServerKey: urlBase64ToUint8Array(import.meta.env.VITE_VAPID_PUBLIC)
       })
       console.log('[Push] Subscription created:', sub)
+      console.log('[Push] user at save time:', user?.id)
       if (user?.id) {
         console.log('[Push] Saving to Supabase for user:', user.id)
         const { error } = await supabase.from('push_subscriptions').upsert({
