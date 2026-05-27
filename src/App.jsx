@@ -161,23 +161,43 @@ export default function App() {
   }
 
   async function subscribeToPush() {
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return null
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      console.log('[Push] No service worker or PushManager')
+      return null
+    }
     try {
       const reg = await navigator.serviceWorker.ready
+      console.log('[Push] Service worker ready')
       const existing = await reg.pushManager.getSubscription()
-      if (existing) return existing
+      if (existing) {
+        console.log('[Push] Existing subscription found, returning it')
+        return existing
+      }
+      console.log('[Push] Creating new subscription...')
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(import.meta.env.VITE_VAPID_PUBLIC)
       })
+      console.log('[Push] Subscription created:', sub)
       if (user?.id) {
-        await supabase.from('push_subscriptions').upsert({
+        console.log('[Push] Saving to Supabase for user:', user.id)
+        const { error } = await supabase.from('push_subscriptions').upsert({
           user_id: user.id,
           subscription: sub.toJSON()
         }, { onConflict: 'user_id' })
+        if (error) {
+          console.error('[Push] Supabase upsert error:', error)
+        } else {
+          console.log('[Push] Saved to Supabase successfully')
+        }
+      } else {
+        console.log('[Push] No user ID, skipping Supabase save')
       }
       return sub
-    } catch { return null }
+    } catch(err) {
+      console.error('[Push] subscribeToPush error:', err)
+      return null
+    }
   }
 
   useEffect(() => {
