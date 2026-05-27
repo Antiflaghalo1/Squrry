@@ -5,7 +5,7 @@ import { getAllStores } from '../data/storeService'
 import { getCustomStores } from '../data/customStores'
 import { saveItem, removeSavedItem } from '../data/savedItems'
 import ReportModal from './ReportModal'
-import { fetchAttributeGroups, fetchGroupResults, fetchUntaggedItems } from '../data/categoryService'
+import { fetchAttributeGroups, fetchGroupResults, fetchUntaggedItems, fetchDepartmentBrowse, fetchSubcategoryDrill } from '../data/categoryService'
 
 const CAT_META = {
   'Meat & Seafood':        { emoji: '🥩', bg: '#FAECE7', dot: '#D85A30' },
@@ -28,6 +28,12 @@ const CAT_META = {
 const SUBCATEGORY_MAP = {
   'Dairy & Eggs': { normalizedCategory: 'Dairy & Eggs', subcategories: ['eggs', 'milk'] },
   'Bakery':       { normalizedCategory: 'Bakery',       subcategories: ['bread'] },
+};
+
+const SUBCATEGORY_DISPLAY = {
+  'eggs':  { label: 'Eggs',  emoji: '🥚' },
+  'milk':  { label: 'Milk',  emoji: '🥛' },
+  'bread': { label: 'Bread', emoji: '🍞' },
 };
 
 function cardFreshness(products) {
@@ -73,13 +79,14 @@ export default function CategoriesView({ onBack, userId, savedUpcs = new Set(), 
   const [obsMap, setObsMap] = useState({})
   const [expandedPrices, setExpandedPrices] = useState(new Set())
   const [reportTarget, setReportTarget] = useState(null)
-  const [drillLevel, setDrillLevel] = useState(0)
   const [selectedDept, setSelectedDept] = useState(null)
-  const [attributeGroups, setAttributeGroups] = useState([])
-  const [selectedGroup, setSelectedGroup] = useState(null)
-  const [groupResults, setGroupResults] = useState([])
-  const [groupsLoading, setGroupsLoading] = useState(false)
   const [untaggedItems, setUntaggedItems] = useState([])
+  const [selectedSubcategory, setSelectedSubcategory] = useState(null);
+  const [attributeFilters, setAttributeFilters] = useState({});
+  const [browsingUntagged, setBrowsingUntagged] = useState(false);
+  const [departmentBrowse, setDepartmentBrowse] = useState(null);
+  const [drillData, setDrillData] = useState(null);
+  const [browseLoading, setBrowseLoading] = useState(false);
 
   const allStores = [...stores, ...getCustomStores()]
 
@@ -109,67 +116,88 @@ export default function CategoriesView({ onBack, userId, savedUpcs = new Set(), 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      if (drillLevel === 1 && selectedDept !== null) {
-        setGroupsLoading(true);
-        const [results, untagged] = await Promise.all([
-          Promise.all(
-            selectedDept.subcategories.map(sub =>
-              fetchAttributeGroups(selectedDept.normalizedCategory, sub)
-            )
-          ),
-          fetchUntaggedItems(selectedDept.normalizedCategory),
-        ]);
-        const merged = results.flat();
-        if (!cancelled) {
-          setAttributeGroups(merged);
-          setUntaggedItems(untagged);
-          setGroupsLoading(false);
-        }
-      } else if (drillLevel === 2 && selectedGroup !== null && selectedDept !== null) {
-        setGroupsLoading(true);
-        const results = await fetchGroupResults(
-          selectedDept.normalizedCategory,
-          selectedGroup.key
-        );
-        if (!cancelled) {
-          setGroupResults(results);
-          setGroupsLoading(false);
-        }
+      if (!selectedDept) {
+        setDepartmentBrowse(null);
+        setDrillData(null);
+        setUntaggedItems([]);
+        return;
       }
+      setBrowseLoading(true);
+
+      if (browsingUntagged) {
+        const u = await fetchUntaggedItems(selectedDept.normalizedCategory);
+        if (!cancelled) setUntaggedItems(u || []);
+      } else if (selectedSubcategory) {
+        const d = await fetchSubcategoryDrill(
+          selectedDept.normalizedCategory,
+          selectedSubcategory,
+          attributeFilters
+        );
+        if (!cancelled) setDrillData(d);
+      } else {
+        const b = await fetchDepartmentBrowse(selectedDept.normalizedCategory);
+        if (!cancelled) setDepartmentBrowse(b);
+      }
+
+      if (!cancelled) setBrowseLoading(false);
     })();
-    return () => { cancelled = true; setUntaggedItems([]); };
-  }, [drillLevel, selectedDept, selectedGroup])
+    return () => { cancelled = true; };
+  }, [selectedDept, selectedSubcategory, attributeFilters, browsingUntagged])
 
   function handleDeptClick(deptLabel) {
     const mapping = SUBCATEGORY_MAP[deptLabel];
     if (!mapping) return;
     setSelectedDept({ label: deptLabel, ...mapping });
-    setAttributeGroups([]);
-    setGroupResults([]);
-    setSelectedGroup(null);
-    setDrillLevel(1);
-  }
-
-  function handleGroupClick(group) {
-    setSelectedGroup(group);
-    setGroupResults([]);
-    setDrillLevel(2);
-  }
-
-  function handleBackToL1() {
-    setDrillLevel(0);
-    setSelectedDept(null);
-    setAttributeGroups([]);
-    setSelectedGroup(null);
-    setGroupResults([]);
+    setSelectedSubcategory(null);
+    setAttributeFilters({});
+    setBrowsingUntagged(false);
+    setDepartmentBrowse(null);
+    setDrillData(null);
     setUntaggedItems([]);
+  }
+
+  function handleBack() {
+    if (browsingUntagged) {
+      setBrowsingUntagged(false);
+      setUntaggedItems([]);
+      return;
+    }
+    if (Object.keys(attributeFilters).length > 0) {
+      const schema = drillData?.schema;
+      if (!schema) { setAttributeFilters({}); return; }
+      const sortedKeys = Object.keys(attributeFilters).sort((a, b) =>
+        (schema[a]?.order ?? 99) - (schema[b]?.order ?? 99)
+      );
+      const lastKey = sortedKeys[sortedKeys.length - 1];
+      const next = { ...attributeFilters };
+      delete next[lastKey];
+      setAttributeFilters(next);
+      return;
+    }
+    if (selectedSubcategory) {
+      setSelectedSubcategory(null);
+      setAttributeFilters({});
+      setDrillData(null);
+      return;
+    }
+    setSelectedDept(null);
+    setDepartmentBrowse(null);
     setExpanded(null);
   }
 
-  function handleBackToL2() {
-    setDrillLevel(1);
-    setSelectedGroup(null);
-    setGroupResults([]);
+  function handleSubcategoryClick(subcategoryKey) {
+    setSelectedSubcategory(subcategoryKey);
+    setAttributeFilters({});
+    setDrillData(null);
+  }
+
+  function handleUntaggedTileClick() {
+    setBrowsingUntagged(true);
+    setUntaggedItems([]);
+  }
+
+  function handleAttributeValueClick(attributeKey, value) {
+    setAttributeFilters(prev => ({ ...prev, [attributeKey]: value }));
   }
 
   async function load() {
@@ -250,7 +278,35 @@ export default function CategoriesView({ onBack, userId, savedUpcs = new Set(), 
     setObsMap(map)
   }
 
-  if (expanded && drillLevel === 0) {
+  function formatAttrValue(v) {
+    return String(v).replace(/_/g, ' ').replace(/\b\w/g,
+      c => c.toUpperCase());
+  }
+
+  function buildBreadcrumb() {
+    const parts = [selectedDept?.label];
+    if (selectedSubcategory) {
+      const display = SUBCATEGORY_DISPLAY[selectedSubcategory];
+      parts.push(display?.label || selectedSubcategory);
+    }
+    if (drillData?.schema) {
+      Object.entries(attributeFilters)
+        .sort(([a], [b]) =>
+          (drillData.schema[a]?.order ?? 99) -
+          (drillData.schema[b]?.order ?? 99)
+        )
+        .forEach(([, v]) => parts.push(formatAttrValue(v)));
+    }
+    return parts.filter(Boolean).join(' › ');
+  }
+
+  const inDrill = !!selectedDept;
+  const inLevel1 = inDrill && !selectedSubcategory && !browsingUntagged;
+  const inUntaggedView = inDrill && browsingUntagged;
+  const inDrillView = inDrill && selectedSubcategory && drillData && drillData.nextAttribute;
+  const inFinalView = inDrill && selectedSubcategory && drillData && !drillData.nextAttribute;
+
+  if (expanded && !selectedDept) {
     const group = groups.find(g => g.name === expanded)
     return (
       <div className="categories-view">
@@ -358,121 +414,183 @@ export default function CategoriesView({ onBack, userId, savedUpcs = new Set(), 
 
   return (
     <div className="categories-view">
-      {drillLevel === 1 && (
+      {reportTarget && (
+        <ReportModal
+          targetId={reportTarget.targetId}
+          targetName={reportTarget.targetName}
+          userId={userId}
+          onClose={() => setReportTarget(null)}
+        />
+      )}
+
+      {inLevel1 && (
         <>
           <div className="drill-header">
-            <button className="drill-back-btn" onClick={handleBackToL1}>
+            <button className="drill-back-btn" onClick={handleBack}>
               ‹ All categories
             </button>
-            <h2 className="drill-title">{selectedDept?.label}</h2>
+            <h2 className="drill-title">{selectedDept.label}</h2>
           </div>
-
-          {groupsLoading && <div className="drill-loading">Loading…</div>}
-
-          {!groupsLoading && attributeGroups.length === 0 && (
-            <div className="drill-empty">No price data yet for this category.</div>
-          )}
-
-          {!groupsLoading && attributeGroups.map(group => (
-            <div key={group.key} className="attr-group-card"
-              onClick={() => handleGroupClick(group)}>
-              <div className="attr-group-thumb">
-                {group.imageUrl ? (
-                  <img src={group.imageUrl} alt="" />
-                ) : (
-                  <div className="attr-group-placeholder">🥚</div>
-                )}
-              </div>
-              <div className="attr-group-left">
-                <div className="attr-group-label">{group.label}</div>
-                <div className="attr-group-meta">
-                  {group.productCount} product{group.productCount !== 1 ? 's' : ''}
-                  {' · '}{group.storeCount} store{group.storeCount !== 1 ? 's' : ''}
-                </div>
-              </div>
-              <div className="attr-group-right">
-                <div className="attr-group-price">from ${group.lowestPrice}</div>
-                {group.unitPrice && group.unitLabel && (
-                  <div className="attr-group-unit">
-                    ${group.unitPrice.toFixed(2)} {group.unitLabel}
+          {browseLoading && <div className="drill-loading">Loading…</div>}
+          {!browseLoading && departmentBrowse && (
+            <>
+              {departmentBrowse.subcategories.map(sub => {
+                const display = SUBCATEGORY_DISPLAY[sub.key] || { label: sub.key, emoji: '📦' };
+                return (
+                  <div key={sub.key} className="drill-tile-card"
+                       onClick={() => handleSubcategoryClick(sub.key)}>
+                    <div className="drill-tile-thumb">
+                      {sub.imageUrl
+                        ? <img src={sub.imageUrl} alt="" />
+                        : <div className="drill-tile-placeholder">{display.emoji}</div>}
+                    </div>
+                    <div className="drill-tile-info">
+                      <div className="drill-tile-label">{display.label}</div>
+                      <div className="drill-tile-meta">
+                        {sub.productCount} product{sub.productCount !== 1 ? 's' : ''}
+                      </div>
+                    </div>
+                    <div className="drill-tile-trailing">
+                      <div className="drill-tile-price">from ${sub.lowestPrice}</div>
+                    </div>
+                    <span className="drill-tile-arrow">›</span>
                   </div>
-                )}
-              </div>
-              <span className="attr-group-arrow">›</span>
-            </div>
-          ))}
-
-          {!groupsLoading && untaggedItems.length > 0 && (
-            <div className="untagged-section">
-              <div className="untagged-header">
-                Needs sorting ({untaggedItems.length})
-              </div>
-              {untaggedItems.map(item => (
-                <div key={item.upc} className="untagged-card">
-                  <div className="untagged-thumb">
-                    {item.imageUrl ? (
-                      <img src={item.imageUrl} alt="" />
-                    ) : (
-                      <div className="untagged-placeholder">🛒</div>
-                    )}
+                );
+              })}
+              {departmentBrowse.untaggedCount > 0 && (
+                <div className="drill-tile-card needs-sorting-tile"
+                     onClick={handleUntaggedTileClick}>
+                  <div className="drill-tile-thumb">
+                    <div className="drill-tile-placeholder">❓</div>
                   </div>
-                  <div className="untagged-info">
-                    {item.brand && <div className="untagged-brand">{item.brand}</div>}
-                    <div className="untagged-name">{item.productName}</div>
-                    <div className="untagged-meta">
-                      ${item.lowestPrice} at {item.store?.name || 'Unknown store'}
+                  <div className="drill-tile-info">
+                    <div className="drill-tile-label">Needs Sorting</div>
+                    <div className="drill-tile-meta">
+                      {departmentBrowse.untaggedCount} item{departmentBrowse.untaggedCount !== 1 ? 's' : ''}
                     </div>
                   </div>
-                  <div className="untagged-actions">
-                    <button
-                      className={savedUpcs.has(String(item.upc)) ? 'save-heart-btn save-heart-btn-saved' : 'save-heart-btn'}
-                      onClick={() => {
-                        const upc = String(item.upc)
-                        if (savedUpcs.has(upc)) {
-                          removeSavedItem(userId, upc)
-                          onItemRemoved?.(upc)
-                        } else {
-                          saveItem(userId, item)
-                          onItemSaved?.(item)
-                        }
-                      }}
-                    >
-                      {savedUpcs.has(String(item.upc))
-                        ? <><Heart size={13} fill="currentColor" /> Saved</>
-                        : <><Heart size={13} /> Save</>}
-                    </button>
-                    <button
-                      className="save-heart-btn"
-                      onClick={() => setReportTarget({ targetId: String(item.upc), targetName: item.productName })}
-                    >
-                      <AlertTriangle size={13} /> Report
-                    </button>
-                  </div>
+                  <span className="drill-tile-arrow">›</span>
                 </div>
-              ))}
-            </div>
+              )}
+            </>
           )}
         </>
       )}
 
-      {drillLevel === 2 && (
+      {inUntaggedView && (
         <>
           <div className="drill-header">
-            <button className="drill-back-btn" onClick={handleBackToL2}>
-              ‹ {selectedDept?.label}
+            <button className="drill-back-btn" onClick={handleBack}>
+              ‹ {selectedDept.label}
             </button>
-            <div className="drill-breadcrumb">
-              {selectedDept?.label} › {selectedGroup?.label}
-            </div>
+            <div className="drill-breadcrumb">{selectedDept.label} › Needs Sorting</div>
           </div>
+          {browseLoading && <div className="drill-loading">Loading…</div>}
+          {!browseLoading && untaggedItems.length === 0 && (
+            <div className="drill-empty">No untagged items.</div>
+          )}
+          {!browseLoading && untaggedItems.map(item => (
+            <div key={item.upc} className="untagged-card">
+              <div className="untagged-thumb">
+                {item.imageUrl ? (
+                  <img src={item.imageUrl} alt="" />
+                ) : (
+                  <div className="untagged-placeholder">🛒</div>
+                )}
+              </div>
+              <div className="untagged-info">
+                {item.brand && <div className="untagged-brand">{item.brand}</div>}
+                <div className="untagged-name">{item.productName}</div>
+                <div className="untagged-meta">
+                  ${item.lowestPrice} at {item.store?.name || 'Unknown store'}
+                </div>
+              </div>
+              <div className="untagged-actions">
+                <button
+                  className={savedUpcs.has(String(item.upc)) ? 'save-heart-btn save-heart-btn-saved' : 'save-heart-btn'}
+                  onClick={() => {
+                    const upc = String(item.upc)
+                    if (savedUpcs.has(upc)) {
+                      removeSavedItem(userId, upc)
+                      onItemRemoved?.(upc)
+                    } else {
+                      saveItem(userId, item)
+                      onItemSaved?.(item)
+                    }
+                  }}
+                >
+                  {savedUpcs.has(String(item.upc))
+                    ? <><Heart size={13} fill="currentColor" /> Saved</>
+                    : <><Heart size={13} /> Save</>}
+                </button>
+                <button
+                  className="save-heart-btn"
+                  onClick={() => setReportTarget({ targetId: String(item.upc), targetName: item.productName })}
+                >
+                  <AlertTriangle size={13} /> Report
+                </button>
+              </div>
+            </div>
+          ))}
+        </>
+      )}
 
-          {groupsLoading && <div className="drill-loading">Loading…</div>}
+      {inDrillView && (
+        <>
+          <div className="drill-header">
+            <button className="drill-back-btn" onClick={handleBack}>‹ Back</button>
+            <div className="drill-breadcrumb">{buildBreadcrumb()}</div>
+            <h2 className="drill-title">
+              Choose {drillData.nextAttribute.def.label}
+            </h2>
+          </div>
+          {browseLoading && <div className="drill-loading">Loading…</div>}
+          {!browseLoading && drillData.distinctNextValues.length === 0 && (
+            <div className="drill-empty">No price data yet.</div>
+          )}
+          {!browseLoading && drillData.distinctNextValues.map(opt => {
+            const display = SUBCATEGORY_DISPLAY[selectedSubcategory] || { emoji: '📦' };
+            return (
+              <div key={opt.value} className="drill-tile-card"
+                   onClick={() => handleAttributeValueClick(drillData.nextAttribute.key, opt.value)}>
+                <div className="drill-tile-thumb">
+                  {opt.imageUrl
+                    ? <img src={opt.imageUrl} alt="" />
+                    : <div className="drill-tile-placeholder">{display.emoji}</div>}
+                </div>
+                <div className="drill-tile-info">
+                  <div className="drill-tile-label">{formatAttrValue(opt.value)}</div>
+                  <div className="drill-tile-meta">
+                    {opt.productCount} product{opt.productCount !== 1 ? 's' : ''} ·
+                    {' '}{opt.storeCount} store{opt.storeCount !== 1 ? 's' : ''}
+                  </div>
+                </div>
+                <div className="drill-tile-trailing">
+                  <div className="drill-tile-price">from ${opt.lowestPrice}</div>
+                  {opt.unitPrice && opt.unitLabel && (
+                    <div className="drill-tile-unit">
+                      ${opt.unitPrice.toFixed(2)} {opt.unitLabel}
+                    </div>
+                  )}
+                </div>
+                <span className="drill-tile-arrow">›</span>
+              </div>
+            );
+          })}
+        </>
+      )}
 
-          {!groupsLoading && groupResults.length === 0 && (
+      {inFinalView && (
+        <>
+          <div className="drill-header">
+            <button className="drill-back-btn" onClick={handleBack}>‹ Back</button>
+            <div className="drill-breadcrumb">{buildBreadcrumb()}</div>
+          </div>
+          {browseLoading && <div className="drill-loading">Loading…</div>}
+          {!browseLoading && drillData.productResults.length === 0 && (
             <div className="drill-empty">No results found.</div>
           )}
-
-          {!groupsLoading && groupResults.map(result => {
+          {!browseLoading && drillData.productResults.map(result => {
             const hoursAgo = result.createdAt
               ? (Date.now() - new Date(result.createdAt).getTime()) / 36e5
               : null;
@@ -547,7 +665,7 @@ export default function CategoriesView({ onBack, userId, savedUpcs = new Set(), 
         </>
       )}
 
-      {drillLevel === 0 && (
+      {!inLevel1 && !inUntaggedView && !inDrillView && !inFinalView && (
         <>
           <button className="back-btn" onClick={onBack}>← Back</button>
           <div className="cat-page-header">
