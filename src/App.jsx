@@ -183,7 +183,7 @@ export default function App() {
   useEffect(() => {
     if (!navigator.geolocation) return
     const NOTIFY_COOLDOWN_MS = 10 * 60 * 1000
-    const GPS_RADIUS_M = 1500
+    const GPS_RADIUS_M = 500
 
     function haversineDistance(lat1, lng1, lat2, lng2) {
       const R = 6371000
