@@ -55,6 +55,8 @@ export default function App() {
   const [queueCount, setQueueCount] = useState(0)
   const viewStack = useRef([])
   const userRef = useRef(null)
+  const lastNotifiedStoreRef = useRef(null)
+  const lastNotifiedTimeRef = useRef(0)
 
   function getQueueCount() {
     try {
@@ -146,20 +148,96 @@ export default function App() {
     return () => subscription.unsubscribe()
   }, [])
 
+  function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4)
+    const base64 = (base64String + padding)
+      .replace(/-/g, '+').replace(/_/g, '/')
+    const rawData = window.atob(base64)
+    const outputArray = new Uint8Array(rawData.length)
+    for (let i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(i)
+    }
+    return outputArray
+  }
+
+  async function subscribeToPush() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return null
+    try {
+      const reg = await navigator.serviceWorker.ready
+      const existing = await reg.pushManager.getSubscription()
+      if (existing) return existing
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(import.meta.env.VITE_VAPID_PUBLIC)
+      })
+      if (user?.id) {
+        await supabase.from('push_subscriptions').upsert({
+          user_id: user.id,
+          subscription: sub.toJSON()
+        }, { onConflict: 'user_id' })
+      }
+      return sub
+    } catch { return null }
+  }
+
   useEffect(() => {
     if (!navigator.geolocation) return
-    navigator.geolocation.getCurrentPosition(
-      pos => {
-        const coords = {
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-          ts: Date.now()
+    const NOTIFY_COOLDOWN_MS = 10 * 60 * 1000
+    const GPS_RADIUS_M = 500
+
+    function haversineDistance(lat1, lng1, lat2, lng2) {
+      const R = 6371000
+      const dLat = (lat2 - lat1) * Math.PI / 180
+      const dLng = (lng2 - lng1) * Math.PI / 180
+      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLng/2) * Math.sin(dLng/2)
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
+    }
+
+    async function handlePosition(pos) {
+      const { latitude: lat, longitude: lng } = pos.coords
+      const coords = { lat, lng, ts: Date.now() }
+      localStorage.setItem('squrry_last_coords', JSON.stringify(coords))
+
+      const stores = await getAllStores()
+      if (!stores?.length) return
+
+      let closest = null
+      let minDist = Infinity
+      for (const store of stores) {
+        if (!store.lat || !store.lng) continue
+        const dist = haversineDistance(lat, lng, store.lat, store.lng)
+        if (dist < minDist) { minDist = dist; closest = store }
+      }
+
+      if (!closest || minDist > GPS_RADIUS_M) return
+
+      const now = Date.now()
+      if (
+        closest.id !== lastNotifiedStoreRef.current &&
+        now - lastNotifiedTimeRef.current > NOTIFY_COOLDOWN_MS
+      ) {
+        lastNotifiedStoreRef.current = closest.id
+        lastNotifiedTimeRef.current = now
+        const sub = await subscribeToPush()
+        if (sub) {
+          fetch('/api/send-push', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              subscription: sub,
+              title: `Welcome to ${closest.name}!`,
+              body: 'Tap to see the latest deals and community prices.'
+            })
+          })
         }
-        localStorage.setItem('squrry_last_coords', JSON.stringify(coords))
-      },
-      () => {},
-      { enableHighAccuracy: true, timeout: 5000, maximumAge: 30000 }
-    )
+      }
+    }
+
+    navigator.geolocation.getCurrentPosition(handlePosition, () => {}, {
+      enableHighAccuracy: true, timeout: 5000, maximumAge: 30000
+    })
   }, [])
 
   const navTo = (newView) => {
