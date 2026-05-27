@@ -71,7 +71,7 @@ function formatDate(dateStr) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
-export default function CategoriesView({ onBack, userId, savedUpcs = new Set(), onItemSaved, onItemRemoved }) {
+export default function CategoriesView({ onBack, userId, savedUpcs = new Set(), onItemSaved, onItemRemoved, resetKey = 0 }) {
   const [stores, setStores] = useState([])
   const [groups, setGroups] = useState([])
   const [loading, setLoading] = useState(true)
@@ -117,6 +117,18 @@ export default function CategoriesView({ onBack, userId, savedUpcs = new Set(), 
     }
     loadGroupObs(expanded)
   }, [expanded])
+
+  useEffect(() => {
+    setSelectedDept(null);
+    setSelectedSubcategory(null);
+    setFilters({ attributes: [], variant: null, size_grade: null, package: null });
+    setBrowsingUntagged(false);
+    setDepartmentBrowse(null);
+    setDrillData(null);
+    setUntaggedItems([]);
+    setBrowseLoading(false);
+    if (typeof setExpanded === 'function') setExpanded(null);
+  }, [resetKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -209,6 +221,7 @@ export default function CategoriesView({ onBack, userId, savedUpcs = new Set(), 
   }
 
   function handleSubcategoryClick(subcategoryKey) {
+    setBrowseLoading(true);
     setSelectedSubcategory(subcategoryKey);
     setFilters({ attributes: [], variant: null, size_grade: null, package: null });
     setDrillData(null);
@@ -220,6 +233,7 @@ export default function CategoriesView({ onBack, userId, savedUpcs = new Set(), 
   }
 
   function handleAttributeValueClick(dimensionKey, value) {
+    setBrowseLoading(true);
     setFilters(prev => {
       if (dimensionKey === 'attributes') {
         // V1 single-select stored as single-element array
@@ -336,8 +350,6 @@ export default function CategoriesView({ onBack, userId, savedUpcs = new Set(), 
   const inDrill = !!selectedDept;
   const inLevel1 = inDrill && !selectedSubcategory && !browsingUntagged;
   const inUntaggedView = inDrill && browsingUntagged;
-  const inDrillView  = inDrill && selectedSubcategory && drillData && drillData.nextDimension;
-  const inFinalView  = inDrill && selectedSubcategory && drillData && !drillData.nextDimension;
 
   if (expanded && !selectedDept) {
     const group = groups.find(g => g.name === expanded)
@@ -566,163 +578,164 @@ export default function CategoriesView({ onBack, userId, savedUpcs = new Set(), 
         </>
       )}
 
-      {inDrillView && (
+      {inDrill && selectedSubcategory && !inLevel1 && !inUntaggedView && (
         <>
           <div className="drill-header">
             <button className="drill-back-btn" onClick={handleBack}>‹ Back</button>
             <div className="drill-breadcrumb">{buildBreadcrumb()}</div>
-            <h2 className="drill-title">
-              Choose {drillData.nextDimension.def.label}
-            </h2>
+            {drillData?.nextDimension && (
+              <h2 className="drill-title">
+                Choose {drillData.nextDimension.def.label}
+              </h2>
+            )}
           </div>
 
-          {browseLoading && <div className="drill-loading">Loading…</div>}
-
-          {!browseLoading && drillData.options.length === 0 && (
-            <div className="drill-empty">No options defined for this dimension.</div>
+          {(browseLoading || !drillData) && (
+            <div className="drill-loading">Loading…</div>
           )}
 
-          {!browseLoading && drillData.options.map(opt => {
-            const display = SUBCATEGORY_DISPLAY[selectedSubcategory] || { emoji: '📦' };
-            const isEmptyLane = opt.productCount === 0;
-            return (
-              <div
-                key={opt.value}
-                className={`drill-tile-card${isEmptyLane ? ' empty-lane' : ''}`}
-                onClick={() => handleAttributeValueClick(
-                  drillData.nextDimension.key,
-                  opt.value
-                )}
-              >
-                <div className="drill-tile-thumb">
-                  <div className="drill-tile-placeholder">{display.emoji}</div>
-                </div>
-                <div className="drill-tile-info">
-                  <div className="drill-tile-label">{opt.label}</div>
-                  {isEmptyLane ? (
-                    <div className="drill-tile-meta empty-lane-text">
-                      Not yet scanned
+          {/* Drill level — options */}
+          {!browseLoading && drillData?.nextDimension && (
+            drillData.options.length === 0
+              ? <div className="drill-empty">No options defined.</div>
+              : drillData.options.map(opt => {
+                  const display = SUBCATEGORY_DISPLAY[selectedSubcategory] || { emoji: '📦' };
+                  const isEmptyLane = opt.productCount === 0;
+                  return (
+                    <div
+                      key={opt.value}
+                      className={`drill-tile-card${isEmptyLane ? ' empty-lane' : ''}`}
+                      onClick={() => handleAttributeValueClick(
+                        drillData.nextDimension.key,
+                        opt.value
+                      )}
+                    >
+                      <div className="drill-tile-thumb">
+                        <div className="drill-tile-placeholder">{display.emoji}</div>
+                      </div>
+                      <div className="drill-tile-info">
+                        <div className="drill-tile-label">{opt.label}</div>
+                        {isEmptyLane ? (
+                          <div className="drill-tile-meta empty-lane-text">
+                            Not yet scanned
+                          </div>
+                        ) : (
+                          <div className="drill-tile-meta">
+                            {opt.productCount} product{opt.productCount !== 1 ? 's' : ''} ·
+                            {' '}{opt.storeCount} store{opt.storeCount !== 1 ? 's' : ''}
+                          </div>
+                        )}
+                      </div>
+                      <div className="drill-tile-trailing">
+                        {opt.lowestPrice ? (
+                          <>
+                            <div className="drill-tile-price">from ${opt.lowestPrice}</div>
+                            {opt.unitPrice && opt.unitLabel && (
+                              <div className="drill-tile-unit">
+                                ${opt.unitPrice.toFixed(2)} {opt.unitLabel}
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <div className="drill-tile-price empty-lane-text">—</div>
+                        )}
+                      </div>
+                      <span className="drill-tile-arrow">›</span>
                     </div>
-                  ) : (
-                    <div className="drill-tile-meta">
-                      {opt.productCount} product{opt.productCount !== 1 ? 's' : ''} ·
-                      {' '}{opt.storeCount} store{opt.storeCount !== 1 ? 's' : ''}
-                    </div>
-                  )}
+                  );
+                })
+          )}
+
+          {/* Final level — product results */}
+          {!browseLoading && drillData && !drillData.nextDimension && (
+            <>
+              {drillData.productResults.length === 0 && (
+                <div className="drill-empty-leaf">
+                  <div className="drill-empty-leaf-icon">🛒</div>
+                  <h3 className="drill-empty-leaf-title">No prices yet</h3>
+                  <p className="drill-empty-leaf-body">
+                    Be the first to scan {buildBreadcrumb()}!
+                  </p>
                 </div>
-                <div className="drill-tile-trailing">
-                  {opt.lowestPrice ? (
-                    <>
-                      <div className="drill-tile-price">from ${opt.lowestPrice}</div>
-                      {opt.unitPrice && opt.unitLabel && (
-                        <div className="drill-tile-unit">
-                          ${opt.unitPrice.toFixed(2)} {opt.unitLabel}
+              )}
+              {drillData.productResults.map(result => {
+                const hoursAgo = result.createdAt
+                  ? (Date.now() - new Date(result.createdAt).getTime()) / 36e5
+                  : null;
+                const freshnessClass = hoursAgo === null ? 'dot-gray'
+                  : hoursAgo < 24 ? 'dot-green'
+                  : hoursAgo < 168 ? 'dot-yellow'
+                  : 'dot-red';
+                const freshnessLabel = hoursAgo === null ? 'Unknown'
+                  : hoursAgo < 1 ? 'Just now'
+                  : hoursAgo < 24 ? `${Math.floor(hoursAgo)}h ago`
+                  : hoursAgo < 168 ? `${Math.floor(hoursAgo / 24)}d ago`
+                  : `${Math.floor(hoursAgo / 168)}w ago`;
+                return (
+                  <div key={result.id} className="group-result-card">
+                    <div className="group-result-thumb">
+                      {result.imageUrl ? (
+                        <img src={result.imageUrl} alt="" />
+                      ) : (
+                        <div className="group-result-placeholder">🥚</div>
+                      )}
+                    </div>
+                    <div className="group-result-info">
+                      {result.brand && (
+                        <div className="group-result-brand">{result.brand}</div>
+                      )}
+                      <div className="group-result-name">{result.productName}</div>
+                      <div className="group-result-store-row">
+                        {result.store?.name || 'Unknown store'}
+                        {result.store?.city ? ` · ${result.store.city}` : ''}
+                      </div>
+                      <div className="group-result-freshness">
+                        <span className={`freshness-dot ${freshnessClass}`} />
+                        {freshnessLabel}
+                      </div>
+                    </div>
+                    <div className="group-result-trailing">
+                      <div className="group-result-price">${result.price}</div>
+                      {result.unitPrice && result.unitLabel && (
+                        <div className="group-result-unit">
+                          ${result.unitPrice.toFixed(2)} {result.unitLabel}
                         </div>
                       )}
-                    </>
-                  ) : (
-                    <div className="drill-tile-price empty-lane-text">—</div>
-                  )}
-                </div>
-                <span className="drill-tile-arrow">›</span>
-              </div>
-            );
-          })}
-        </>
-      )}
-
-      {inFinalView && (
-        <>
-          <div className="drill-header">
-            <button className="drill-back-btn" onClick={handleBack}>‹ Back</button>
-            <div className="drill-breadcrumb">{buildBreadcrumb()}</div>
-          </div>
-          {browseLoading && <div className="drill-loading">Loading…</div>}
-          {!browseLoading && drillData.productResults.length === 0 && (
-            <div className="drill-empty-leaf">
-              <div className="drill-empty-leaf-icon">🛒</div>
-              <h3 className="drill-empty-leaf-title">No prices yet</h3>
-              <p className="drill-empty-leaf-body">
-                Be the first to scan {buildBreadcrumb()}!
-              </p>
-            </div>
-          )}
-          {!browseLoading && drillData.productResults.map(result => {
-            const hoursAgo = result.createdAt
-              ? (Date.now() - new Date(result.createdAt).getTime()) / 36e5
-              : null;
-            const freshnessClass = hoursAgo === null ? 'dot-gray'
-              : hoursAgo < 24 ? 'dot-green'
-              : hoursAgo < 168 ? 'dot-yellow'
-              : 'dot-red';
-            const freshnessLabel = hoursAgo === null ? 'Unknown'
-              : hoursAgo < 1 ? 'Just now'
-              : hoursAgo < 24 ? `${Math.floor(hoursAgo)}h ago`
-              : hoursAgo < 168 ? `${Math.floor(hoursAgo / 24)}d ago`
-              : `${Math.floor(hoursAgo / 168)}w ago`;
-            return (
-              <div key={result.id} className="group-result-card">
-                <div className="group-result-thumb">
-                  {result.imageUrl ? (
-                    <img src={result.imageUrl} alt="" />
-                  ) : (
-                    <div className="group-result-placeholder">🥚</div>
-                  )}
-                </div>
-                <div className="group-result-info">
-                  {result.brand && (
-                    <div className="group-result-brand">{result.brand}</div>
-                  )}
-                  <div className="group-result-name">{result.productName}</div>
-                  <div className="group-result-store-row">
-                    {result.store?.name || 'Unknown store'}
-                    {result.store?.city ? ` · ${result.store.city}` : ''}
-                  </div>
-                  <div className="group-result-freshness">
-                    <span className={`freshness-dot ${freshnessClass}`} />
-                    {freshnessLabel}
-                  </div>
-                </div>
-                <div className="group-result-trailing">
-                  <div className="group-result-price">${result.price}</div>
-                  {result.unitPrice && result.unitLabel && (
-                    <div className="group-result-unit">
-                      ${result.unitPrice.toFixed(2)} {result.unitLabel}
+                      <div className="group-result-actions">
+                        <button
+                          className={savedUpcs.has(String(result.barcode)) ? 'save-heart-btn save-heart-btn-saved' : 'save-heart-btn'}
+                          onClick={() => {
+                            const upc = String(result.barcode)
+                            if (savedUpcs.has(upc)) {
+                              removeSavedItem(userId, upc)
+                              onItemRemoved?.(upc)
+                            } else {
+                              saveItem(userId, result)
+                              onItemSaved?.(result)
+                            }
+                          }}
+                        >
+                          {savedUpcs.has(String(result.barcode))
+                            ? <><Heart size={13} fill="currentColor" /> Saved</>
+                            : <><Heart size={13} /> Save</>}
+                        </button>
+                        <button
+                          className="save-heart-btn"
+                          onClick={() => setReportTarget({ targetId: String(result.barcode), targetName: result.productName })}
+                        >
+                          <AlertTriangle size={13} /> Report
+                        </button>
+                      </div>
                     </div>
-                  )}
-                  <div className="group-result-actions">
-                    <button
-                      className={savedUpcs.has(String(result.barcode)) ? 'save-heart-btn save-heart-btn-saved' : 'save-heart-btn'}
-                      onClick={() => {
-                        const upc = String(result.barcode)
-                        if (savedUpcs.has(upc)) {
-                          removeSavedItem(userId, upc)
-                          onItemRemoved?.(upc)
-                        } else {
-                          saveItem(userId, result)
-                          onItemSaved?.(result)
-                        }
-                      }}
-                    >
-                      {savedUpcs.has(String(result.barcode))
-                        ? <><Heart size={13} fill="currentColor" /> Saved</>
-                        : <><Heart size={13} /> Save</>}
-                    </button>
-                    <button
-                      className="save-heart-btn"
-                      onClick={() => setReportTarget({ targetId: String(result.barcode), targetName: result.productName })}
-                    >
-                      <AlertTriangle size={13} /> Report
-                    </button>
                   </div>
-                </div>
-              </div>
-            );
-          })}
+                );
+              })}
+            </>
+          )}
         </>
       )}
 
-      {!inLevel1 && !inUntaggedView && !inDrillView && !inFinalView && (
+      {!inDrill && (
         <>
           <button className="back-btn" onClick={onBack}>← Back</button>
           <div className="cat-page-header">

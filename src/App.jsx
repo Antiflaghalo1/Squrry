@@ -53,6 +53,7 @@ export default function App() {
   const [savedItemsCount, setSavedItemsCount] = useState(0)
   const [queueToast, setQueueToast] = useState(0)
   const [queueCount, setQueueCount] = useState(0)
+  const [categoriesResetKey, setCategoriesResetKey] = useState(0)
   const viewStack = useRef([])
   const userRef = useRef(null)
   const lastNotifiedStoreRef = useRef(null)
@@ -715,6 +716,7 @@ export default function App() {
           savedUpcs={savedUpcs}
           onItemSaved={handleSaveItem}
           onItemRemoved={handleRemoveItem}
+          resetKey={categoriesResetKey}
         />
       )}
       {view === 'saved' && (
@@ -791,7 +793,13 @@ export default function App() {
             <Home size={22} />
             <span className="bottom-nav-label">Home</span>
           </button>
-          <button className={`bottom-nav-tab${view === 'categories' ? ' active' : ''}`} onClick={() => navTo('categories')}>
+          <button className={`bottom-nav-tab${view === 'categories' ? ' active' : ''}`} onClick={() => {
+            if (view === 'categories') {
+              setCategoriesResetKey(prev => prev + 1);
+            } else {
+              navTo('categories');
+            }
+          }}>
             <LayoutGrid size={22} />
             <span className="bottom-nav-label">Categories</span>
           </button>
