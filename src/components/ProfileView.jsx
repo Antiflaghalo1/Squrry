@@ -98,6 +98,17 @@ export default function ProfileView({ user, firstName, lastName, avatarUrl, onAv
                   return outputArray
                 })()
               })
+              if (user?.id) {
+                const { error } = await supabase.from('push_subscriptions').upsert({
+                  user_id: user.id,
+                  subscription: sub.toJSON()
+                }, { onConflict: 'user_id' })
+                if (error) {
+                  console.error('[Test] Supabase error:', error)
+                } else {
+                  console.log('[Test] Saved to Supabase!')
+                }
+              }
               console.log('[Test] Sub object:', JSON.stringify(sub))
               const res = await fetch('/api/send-push', {
                 method: 'POST',
