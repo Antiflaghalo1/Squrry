@@ -5,7 +5,7 @@ import { getAllStores } from '../data/storeService'
 import { getCustomStores } from '../data/customStores'
 import { saveItem, removeSavedItem } from '../data/savedItems'
 import ReportModal from './ReportModal'
-import { fetchAttributeGroups, fetchGroupResults } from '../data/categoryService'
+import { fetchAttributeGroups, fetchGroupResults, fetchUntaggedItems } from '../data/categoryService'
 
 const CAT_META = {
   'Meat & Seafood':        { emoji: '🥩', bg: '#FAECE7', dot: '#D85A30' },
@@ -79,6 +79,7 @@ export default function CategoriesView({ onBack, userId, savedUpcs = new Set(), 
   const [selectedGroup, setSelectedGroup] = useState(null)
   const [groupResults, setGroupResults] = useState([])
   const [groupsLoading, setGroupsLoading] = useState(false)
+  const [untaggedItems, setUntaggedItems] = useState([])
 
   const allStores = [...stores, ...getCustomStores()]
 
@@ -110,14 +111,18 @@ export default function CategoriesView({ onBack, userId, savedUpcs = new Set(), 
     (async () => {
       if (drillLevel === 1 && selectedDept !== null) {
         setGroupsLoading(true);
-        const results = await Promise.all(
-          selectedDept.subcategories.map(sub =>
-            fetchAttributeGroups(selectedDept.normalizedCategory, sub)
-          )
-        );
+        const [results, untagged] = await Promise.all([
+          Promise.all(
+            selectedDept.subcategories.map(sub =>
+              fetchAttributeGroups(selectedDept.normalizedCategory, sub)
+            )
+          ),
+          fetchUntaggedItems(selectedDept.normalizedCategory),
+        ]);
         const merged = results.flat();
         if (!cancelled) {
           setAttributeGroups(merged);
+          setUntaggedItems(untagged);
           setGroupsLoading(false);
         }
       } else if (drillLevel === 2 && selectedGroup !== null && selectedDept !== null) {
@@ -132,7 +137,7 @@ export default function CategoriesView({ onBack, userId, savedUpcs = new Set(), 
         }
       }
     })();
-    return () => { cancelled = true; };
+    return () => { cancelled = true; setUntaggedItems([]); };
   }, [drillLevel, selectedDept, selectedGroup])
 
   function handleDeptClick(deptLabel) {
@@ -157,6 +162,7 @@ export default function CategoriesView({ onBack, userId, savedUpcs = new Set(), 
     setAttributeGroups([]);
     setSelectedGroup(null);
     setGroupResults([]);
+    setUntaggedItems([]);
     setExpanded(null);
   }
 
@@ -370,6 +376,13 @@ export default function CategoriesView({ onBack, userId, savedUpcs = new Set(), 
           {!groupsLoading && attributeGroups.map(group => (
             <div key={group.key} className="attr-group-card"
               onClick={() => handleGroupClick(group)}>
+              <div className="attr-group-thumb">
+                {group.imageUrl ? (
+                  <img src={group.imageUrl} alt="" />
+                ) : (
+                  <div className="attr-group-placeholder">🥚</div>
+                )}
+              </div>
               <div className="attr-group-left">
                 <div className="attr-group-label">{group.label}</div>
                 <div className="attr-group-meta">
@@ -388,6 +401,57 @@ export default function CategoriesView({ onBack, userId, savedUpcs = new Set(), 
               <span className="attr-group-arrow">›</span>
             </div>
           ))}
+
+          {!groupsLoading && untaggedItems.length > 0 && (
+            <div className="untagged-section">
+              <div className="untagged-header">
+                Needs sorting ({untaggedItems.length})
+              </div>
+              {untaggedItems.map(item => (
+                <div key={item.upc} className="untagged-card">
+                  <div className="untagged-thumb">
+                    {item.imageUrl ? (
+                      <img src={item.imageUrl} alt="" />
+                    ) : (
+                      <div className="untagged-placeholder">🛒</div>
+                    )}
+                  </div>
+                  <div className="untagged-info">
+                    {item.brand && <div className="untagged-brand">{item.brand}</div>}
+                    <div className="untagged-name">{item.productName}</div>
+                    <div className="untagged-meta">
+                      ${item.lowestPrice} at {item.store?.name || 'Unknown store'}
+                    </div>
+                  </div>
+                  <div className="untagged-actions">
+                    <button
+                      className={savedUpcs.has(String(item.upc)) ? 'save-heart-btn save-heart-btn-saved' : 'save-heart-btn'}
+                      onClick={() => {
+                        const upc = String(item.upc)
+                        if (savedUpcs.has(upc)) {
+                          removeSavedItem(userId, upc)
+                          onItemRemoved?.(upc)
+                        } else {
+                          saveItem(userId, item)
+                          onItemSaved?.(item)
+                        }
+                      }}
+                    >
+                      {savedUpcs.has(String(item.upc))
+                        ? <><Heart size={13} fill="currentColor" /> Saved</>
+                        : <><Heart size={13} /> Save</>}
+                    </button>
+                    <button
+                      className="save-heart-btn"
+                      onClick={() => setReportTarget({ targetId: String(item.upc), targetName: item.productName })}
+                    >
+                      <AlertTriangle size={13} /> Report
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </>
       )}
 
@@ -423,25 +487,59 @@ export default function CategoriesView({ onBack, userId, savedUpcs = new Set(), 
               : `${Math.floor(hoursAgo / 168)}w ago`;
             return (
               <div key={result.id} className="group-result-card">
-                <div className="group-result-left">
-                  <div className="group-result-store">
-                    {result.store?.name || 'Unknown store'}
-                  </div>
-                  {result.store?.city && (
-                    <div className="group-result-location">{result.store.city}</div>
+                <div className="group-result-thumb">
+                  {result.imageUrl ? (
+                    <img src={result.imageUrl} alt="" />
+                  ) : (
+                    <div className="group-result-placeholder">🥚</div>
                   )}
+                </div>
+                <div className="group-result-info">
+                  {result.brand && (
+                    <div className="group-result-brand">{result.brand}</div>
+                  )}
+                  <div className="group-result-name">{result.productName}</div>
+                  <div className="group-result-store-row">
+                    {result.store?.name || 'Unknown store'}
+                    {result.store?.city ? ` · ${result.store.city}` : ''}
+                  </div>
                   <div className="group-result-freshness">
                     <span className={`freshness-dot ${freshnessClass}`} />
                     {freshnessLabel}
                   </div>
                 </div>
-                <div className="group-result-right">
+                <div className="group-result-trailing">
                   <div className="group-result-price">${result.price}</div>
                   {result.unitPrice && result.unitLabel && (
                     <div className="group-result-unit">
                       ${result.unitPrice.toFixed(2)} {result.unitLabel}
                     </div>
                   )}
+                  <div className="group-result-actions">
+                    <button
+                      className={savedUpcs.has(String(result.barcode)) ? 'save-heart-btn save-heart-btn-saved' : 'save-heart-btn'}
+                      onClick={() => {
+                        const upc = String(result.barcode)
+                        if (savedUpcs.has(upc)) {
+                          removeSavedItem(userId, upc)
+                          onItemRemoved?.(upc)
+                        } else {
+                          saveItem(userId, result)
+                          onItemSaved?.(result)
+                        }
+                      }}
+                    >
+                      {savedUpcs.has(String(result.barcode))
+                        ? <><Heart size={13} fill="currentColor" /> Saved</>
+                        : <><Heart size={13} /> Save</>}
+                    </button>
+                    <button
+                      className="save-heart-btn"
+                      onClick={() => setReportTarget({ targetId: String(result.barcode), targetName: result.productName })}
+                    >
+                      <AlertTriangle size={13} /> Report
+                    </button>
+                  </div>
                 </div>
               </div>
             );
