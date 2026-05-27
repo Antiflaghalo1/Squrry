@@ -132,6 +132,53 @@ export default function ProfileView({ user, firstName, lastName, avatarUrl, onAv
           🧪 Test Push Notification
         </button>
       )}
+      <button
+        onClick={async () => {
+          try {
+            const reg = await navigator.serviceWorker.ready
+            const existing = await reg.pushManager.getSubscription()
+            const sub = existing || await reg.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: (() => {
+                const base64String = import.meta.env.VITE_VAPID_PUBLIC
+                const padding = '='.repeat((4 - base64String.length % 4) % 4)
+                const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
+                const rawData = window.atob(base64)
+                const outputArray = new Uint8Array(rawData.length)
+                for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i)
+                return outputArray
+              })()
+            })
+            const res = await fetch('/api/send-push', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                subscription: sub,
+                title: '🐿️ Test notification!',
+                body: 'Squrry push pipeline is working.'
+              })
+            })
+            const data = await res.json()
+            alert('Response: ' + JSON.stringify(data))
+          } catch(err) {
+            alert('Error: ' + err.message)
+          }
+        }}
+        style={{
+          marginTop: 16, marginBottom: 8,
+          padding: '10px 20px',
+          background: '#C8622A',
+          color: 'white',
+          border: 'none',
+          borderRadius: 8,
+          fontSize: 14,
+          fontWeight: 700,
+          cursor: 'pointer',
+          width: '100%'
+        }}
+      >
+        🧪 Test Push Notification
+      </button>
       <button className="profile-signout-btn profile-view-signout" onClick={onSignOut}>
         Sign Out
       </button>
