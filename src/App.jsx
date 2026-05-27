@@ -623,7 +623,14 @@ export default function App() {
               <div className="store-items">
                 {items.map(item => (
                   <div key={item.id} className="result-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                    <span>{item.name}</span>
+                    <span>
+                      {item.name}
+                      {item.unitPrice && item.unitLabel && (
+                        <span className="item-unit-price">
+                          ${item.unitPrice.toFixed(2)} {item.unitLabel}
+                        </span>
+                      )}
+                    </span>
                     <span className="result-price">
                       ${item.bestPrice.toFixed(2)}
                       {results.flippSaleItems?.has(`${item.id}:${store.id}`) && (

@@ -706,3 +706,12 @@ h1 { font-size: 17px; font-weight: 800; color: var(--text); }
 }
 
 .drawer-version { text-align: center; font-size: 11px; color: rgba(255,255,255,0.3); padding: 12px 0 4px; margin-top: auto; }
+
+/* Phase 2.7 — Unit price display in optimizer results */
+.item-unit-price {
+  display: block;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+  letter-spacing: 0.01em;
+}
