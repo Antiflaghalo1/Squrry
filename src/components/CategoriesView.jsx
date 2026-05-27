@@ -26,9 +26,9 @@ const CAT_META = {
 }
 
 const SUBCATEGORY_MAP = {
-  'Dairy & Eggs': { normalizedCategory: 'dairy_eggs', subcategories: ['eggs', 'milk'] },
-  'Bakery':       { normalizedCategory: 'bakery',     subcategories: ['bread'] },
-}
+  'Dairy & Eggs': { normalizedCategory: 'Dairy & Eggs', subcategories: ['eggs', 'milk'] },
+  'Bakery':       { normalizedCategory: 'Bakery',       subcategories: ['bread'] },
+};
 
 function cardFreshness(products) {
   if (products.length === 0) return { dot: '#888780', label: 'No scans yet', color: '#888780' }
@@ -157,6 +157,7 @@ export default function CategoriesView({ onBack, userId, savedUpcs = new Set(), 
     setAttributeGroups([]);
     setSelectedGroup(null);
     setGroupResults([]);
+    setExpanded(null);
   }
 
   function handleBackToL2() {
