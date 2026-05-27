@@ -238,6 +238,21 @@ export default function App() {
     navigator.geolocation.getCurrentPosition(handlePosition, () => {}, {
       enableHighAccuracy: true, timeout: 5000, maximumAge: 30000
     })
+
+    const watchId = navigator.geolocation.watchPosition(handlePosition, () => {}, {
+      enableHighAccuracy: true, timeout: 10000, maximumAge: 0
+    })
+
+    const pollInterval = setInterval(() => {
+      navigator.geolocation.getCurrentPosition(handlePosition, () => {}, {
+        enableHighAccuracy: true, timeout: 5000, maximumAge: 30000
+      })
+    }, 10000)
+
+    return () => {
+      navigator.geolocation.clearWatch(watchId)
+      clearInterval(pollInterval)
+    }
   }, [])
 
   const navTo = (newView) => {
