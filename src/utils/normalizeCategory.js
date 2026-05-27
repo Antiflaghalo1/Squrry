@@ -77,6 +77,27 @@ const GENERIC_RAW_CATEGORIES = new Set([
   'plant based foods and beverages',
 ])
 
+const NAME_OVERRIDES = [
+  { keywords: ['egg', 'eggs'],               result: 'Dairy & Eggs' },
+  { keywords: ['milk', 'cream', 'butter',
+               'cheese', 'yogurt', 'dairy'], result: 'Dairy & Eggs' },
+  { keywords: ['bread', 'bagel', 'muffin',
+               'roll', 'bun', 'tortilla'],   result: 'Bakery & Bread' },
+  { keywords: ['chicken', 'beef', 'pork',
+               'steak', 'ground beef',
+               'turkey', 'lamb', 'veal'],    result: 'Meat & Seafood' },
+  { keywords: ['salmon', 'tuna', 'shrimp',
+               'fish', 'crab', 'lobster'],   result: 'Meat & Seafood' },
+  { keywords: ['apple', 'banana', 'grape',
+               'strawberr', 'blueberr',
+               'avocado', 'lemon', 'lime',
+               'orange', 'peach', 'melon'],  result: 'Produce' },
+  { keywords: ['lettuce', 'spinach',
+               'broccoli', 'carrot',
+               'tomato', 'pepper', 'onion',
+               'celery', 'cucumber'],        result: 'Produce' },
+]
+
 function matchKeywords(str) {
   for (const [category, keywords] of RULES) {
     for (const kw of keywords) {
@@ -87,6 +108,14 @@ function matchKeywords(str) {
 }
 
 export default function normalizeCategory(rawCategory, name = '') {
+  // Name-based overrides run first, before any category-string logic
+  if (name) {
+    const lowerName = name.toLowerCase()
+    for (const { keywords, result } of NAME_OVERRIDES) {
+      if (keywords.some(kw => lowerName.includes(kw))) return result
+    }
+  }
+
   // Try raw_category first
   if (rawCategory && rawCategory !== 'Miscellaneous' &&
       rawCategory.toLowerCase() !== 'undefined' &&
