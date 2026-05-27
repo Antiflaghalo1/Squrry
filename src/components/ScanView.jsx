@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode'
 import { getAllStores } from '../data/storeService'
 import { PRODUCTS } from '../data/products'
-import { addObservation, upsertProduct } from '../data/observations'
+import { addObservation, upsertProduct, fetchCategorySchema, upsertProductAttribute } from '../data/observations'
 import { getCustomStores, addCustomStore } from '../data/customStores'
 import { supabase } from '../lib/supabase'
 import ReportModal from './ReportModal'
@@ -113,6 +113,9 @@ export default function ScanView({ onBack, user }) {
   const [promoPrice, setPromoPrice] = useState('')
   const [promoQuantity, setPromoQuantity] = useState('')
   const [detectedStore, setDetectedStore] = useState(null)
+  const [categorySchema, setCategorySchema] = useState(null)
+  const [attributeValues, setAttributeValues] = useState({})
+  const [taggerVisible, setTaggerVisible] = useState(false)
   const watchIdRef = useRef(null)
   const pollIntervalRef = useRef(null)
   const detectedStoreRef = useRef(null)
@@ -269,6 +272,31 @@ export default function ScanView({ onBack, user }) {
     return () => stopShelfCamera()
   }, [])
 
+  useEffect(() => {
+    setAttributeValues({})
+    setTaggerVisible(false)
+    setCategorySchema(null)
+    if (!recognizedProduct) return
+    if (!recognizedProduct.subcategory) return
+    let cancelled = false
+    fetchCategorySchema(recognizedProduct.subcategory).then(result => {
+      if (cancelled) return
+      if (!result) return
+      if (result.tagger_enabled !== true) return
+      const prefill = {}
+      for (const key of Object.keys(result.schema)) {
+        const existing = recognizedProduct.attributes?.[key]
+        if (existing && (existing.confidence === 'high' || existing.confidence === 'medium')) {
+          prefill[key] = existing.value
+        }
+      }
+      setCategorySchema(result)
+      setAttributeValues(prefill)
+      setTaggerVisible(true)
+    })
+    return () => { cancelled = true }
+  }, [recognizedProduct])
+
   // Seed / refresh local product cache (24-hour TTL)
   useEffect(() => {
     async function refreshCache() {
@@ -331,7 +359,7 @@ export default function ScanView({ onBack, user }) {
 
     const { data: dbProduct } = await supabase
       .from('products')
-      .select('name, brand, category, normalized_category, quantity, image_url')
+      .select('name, brand, category, normalized_category, quantity, image_url, subcategory, attributes')
       .eq('upc', code)
       .maybeSingle()
 
@@ -341,7 +369,7 @@ export default function ScanView({ onBack, user }) {
       setProductCategory(dbProduct.category || '')
       setProductQuantity(dbProduct.quantity || '')
       setProductImageUrl(dbProduct.image_url || '')
-      setRecognizedProduct({ image_url: dbProduct.image_url || '', normalized_category: dbProduct.normalized_category || '' })
+      setRecognizedProduct({ image_url: dbProduct.image_url || '', normalized_category: dbProduct.normalized_category || '', subcategory: dbProduct.subcategory || null, attributes: dbProduct.attributes || null, upc: code })
       setApiLookupStatus('found')
       supabase.from('observations').select('store_id, price, created_at')
         .eq('barcode', code).eq('voided', false)
@@ -449,6 +477,28 @@ export default function ScanView({ onBack, user }) {
       setApiLookupStatus('error')
       queueForRelookup(code)
     }
+  }
+
+  function handleAttributeChange(key, value) {
+    setAttributeValues(prev => ({ ...prev, [key]: value }))
+  }
+
+  function handleSkipTagger() {
+    setTaggerVisible(false)
+  }
+
+  async function handleSaveAttributes() {
+    for (const [key, value] of Object.entries(attributeValues)) {
+      if (value === undefined || value === null || value === '') continue
+      await upsertProductAttribute({
+        upc: recognizedProduct.upc,
+        key,
+        value,
+        source: 'community',
+        confidence: 'medium'
+      })
+    }
+    setTaggerVisible(false)
   }
 
   // ── Shelf camera (low-res live stream, no file input) ──
@@ -737,6 +787,133 @@ export default function ScanView({ onBack, user }) {
                   </div>
                 )}
               </div>
+            </div>
+          )}
+
+          {taggerVisible && categorySchema && (
+            <div className="attribute-tagger">
+              <div className="attribute-tagger-header">
+                <h3>Help us tag this product</h3>
+                <button
+                  type="button"
+                  className="attribute-tagger-skip"
+                  onClick={handleSkipTagger}
+                >
+                  Skip
+                </button>
+              </div>
+
+              {Object.entries(categorySchema.schema)
+                .sort(([, a], [, b]) => (a.order ?? 99) - (b.order ?? 99))
+                .filter(([, def]) => {
+                  if (!def.show_if) return true
+                  return Object.entries(def.show_if).every(
+                    ([k, v]) => attributeValues[k] === v
+                  )
+                })
+                .map(([key, def]) => (
+                  <div key={key} className="attribute-group">
+                    <label className="attribute-label">
+                      {def.label}
+                      {def.required && <span className="attribute-required">*</span>}
+                    </label>
+
+                    {def.type === 'enum' && (
+                      <div className="attribute-options">
+                        {def.options.map(opt => (
+                          <button
+                            type="button"
+                            key={opt}
+                            className={
+                              'attribute-pill' +
+                              (attributeValues[key] === opt ? ' selected' : '')
+                            }
+                            onClick={() => handleAttributeChange(key, opt)}
+                          >
+                            {opt}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {def.type === 'integer' && def.options && (
+                      <div className="attribute-options">
+                        {def.options.map(opt => (
+                          <button
+                            type="button"
+                            key={opt}
+                            className={
+                              'attribute-pill' +
+                              (attributeValues[key] === opt ? ' selected' : '')
+                            }
+                            onClick={() => handleAttributeChange(key, opt)}
+                          >
+                            {opt}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {def.type === 'integer' && !def.options && (
+                      <input
+                        type="number"
+                        step="1"
+                        className="attribute-input"
+                        value={attributeValues[key] ?? ''}
+                        onChange={(e) => {
+                          const v = e.target.value
+                          handleAttributeChange(key, v === '' ? null : parseInt(v, 10))
+                        }}
+                      />
+                    )}
+
+                    {def.type === 'number' && (
+                      <input
+                        type="number"
+                        step="0.01"
+                        className="attribute-input"
+                        value={attributeValues[key] ?? ''}
+                        onChange={(e) => {
+                          const v = e.target.value
+                          handleAttributeChange(key, v === '' ? null : parseFloat(v))
+                        }}
+                      />
+                    )}
+
+                    {def.type === 'boolean' && (
+                      <div className="attribute-options">
+                        <button
+                          type="button"
+                          className={
+                            'attribute-pill' +
+                            (attributeValues[key] === true ? ' selected' : '')
+                          }
+                          onClick={() => handleAttributeChange(key, true)}
+                        >
+                          Yes
+                        </button>
+                        <button
+                          type="button"
+                          className={
+                            'attribute-pill' +
+                            (attributeValues[key] === false ? ' selected' : '')
+                          }
+                          onClick={() => handleAttributeChange(key, false)}
+                        >
+                          No
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+
+              <button
+                type="button"
+                className="attribute-tagger-save"
+                onClick={handleSaveAttributes}
+              >
+                Save Tags
+              </button>
             </div>
           )}
 

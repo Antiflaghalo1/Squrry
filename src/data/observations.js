@@ -101,3 +101,64 @@ export function getObservations() {
     return []
   }
 }
+
+export async function fetchCategorySchema(subcategory) {
+  if (subcategory == null || subcategory === '') return null
+
+  const { data, error } = await supabase
+    .from('category_schemas')
+    .select('schema, tagger_enabled, department')
+    .eq('subcategory', subcategory)
+    .maybeSingle()
+
+  if (error) {
+    console.warn('[fetchCategorySchema] error:', error)
+    return null
+  }
+
+  if (data == null) return null
+
+  return data
+}
+
+const VALID_SOURCES = ['upc_db', 'community', 'admin', 'user']
+const VALID_CONFIDENCES = ['low', 'medium', 'high']
+
+export async function upsertProductAttribute({ upc, key, value, source, confidence }) {
+  for (const [name, val] of [['upc', upc], ['key', key], ['source', source], ['confidence', confidence]]) {
+    if (val == null || val === '') {
+      console.warn('[upsertProductAttribute] missing field:', name)
+      return null
+    }
+  }
+
+  if (value === undefined || value === null) {
+    console.warn('[upsertProductAttribute] missing field:', 'value')
+    return null
+  }
+
+  if (!VALID_SOURCES.includes(source)) {
+    console.warn('[upsertProductAttribute] missing field:', 'source')
+    return null
+  }
+
+  if (!VALID_CONFIDENCES.includes(confidence)) {
+    console.warn('[upsertProductAttribute] missing field:', 'confidence')
+    return null
+  }
+
+  const { data, error } = await supabase.rpc('upsert_product_attribute', {
+    p_upc: upc,
+    p_key: key,
+    p_value: value,
+    p_source: source,
+    p_confidence: confidence,
+  })
+
+  if (error) {
+    console.warn('[upsertProductAttribute] error:', error)
+    return null
+  }
+
+  return data
+}
