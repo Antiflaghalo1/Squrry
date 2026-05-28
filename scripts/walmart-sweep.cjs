@@ -4,14 +4,11 @@
 // ─────────────────────────────────────────────────────────────
 // walmart-sweep.cjs
 // Sweeps IE Walmart stores for grocery products + prices.
-// Two-pass per item:
-//   1. Search  → name, price, image, usItemId
-//   2. ItemById → real UPC (falls back to wm_{usItemId} if blocked)
+// Stores products with wm_{usItemId} as temporary UPC key.
+// UPC enrichment is a separate pass — not done inline here
+// to avoid rate limiting on the ItemById endpoint.
 //
 // Runs weekly via GitHub Actions after flipp-sweep.
-// NOTE: ITEM_BY_ID_HASH will break when Walmart deploys a new
-//       frontend build. Re-capture from DevTools → Network →
-//       any 421705528?variables= call → copy URL hash segment.
 // ─────────────────────────────────────────────────────────────
 
 const { createClient } = require('@supabase/supabase-js');
@@ -23,15 +20,12 @@ const supabase = createClient(
 
 // ─── CONFIG ────────────────────────────────────────────────
 
-const ITEM_BY_ID_HASH =
-  '742ce4e0a04711ca81b326cda3c3d064ee6de1c9be8e90751b6be3a0ecb24620';
-
 // Walmart internal store ID → Supabase store ID
 const STORE_MAP = [
-  { walmartId: '3464', dbId: 'walmart_chino',    city: 'Chino'    },
-  { walmartId: '3796', dbId: 'walmart_ontario',  city: 'Ontario'  },
-  { walmartId: '2288', dbId: 'walmart_phillips_ranch', city: 'Phillips Ranch' },
-  { walmartId: '3129', dbId: 'walmart_eastvale', city: 'Eastvale' },
+  { walmartId: '3464', dbId: 'walmart_chino',          city: 'Chino'          },
+  { walmartId: '3796', dbId: 'walmart_ontario',         city: 'Ontario'        },
+  { walmartId: '2288', dbId: 'walmart_phillips_ranch',  city: 'Phillips Ranch' },
+  { walmartId: '3129', dbId: 'walmart_eastvale',        city: 'Eastvale'       },
 ];
 
 const SEARCH_TERMS = [
@@ -60,9 +54,8 @@ const USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
   '(KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36';
 
-// Delays (ms) — be respectful, avoid rate limits
+// Delay between search term requests (ms)
 const DELAY_BETWEEN_SEARCHES = 2500;
-const DELAY_BETWEEN_ITEM_FETCHES = 800;
 
 // ─── HEADERS ───────────────────────────────────────────────
 
@@ -78,30 +71,6 @@ function searchHeaders(walmartStoreId) {
     'sec-fetch-mode': 'cors',
     'sec-fetch-site': 'same-origin',
     'user-agent': USER_AGENT,
-    // Minimal store context — no session cookies needed
-    'cookie': `assortmentStoreId=${walmartStoreId}; _m=9; _shcc=US; hasLocData=1; _intlbu=false`,
-  };
-}
-
-function itemHeaders(walmartStoreId, itemId) {
-  return {
-    'accept': 'application/json',
-    'accept-language': 'en-US',
-    'calltype': 'CLIENT',
-    'content-type': 'application/json',
-    'dnt': '1',
-    'sec-fetch-dest': 'empty',
-    'sec-fetch-mode': 'cors',
-    'sec-fetch-site': 'same-origin',
-    'user-agent': USER_AGENT,
-    'x-o-bu': 'WALMART-US',
-    'x-o-ccm': 'server',
-    'x-o-mart': 'B2C',
-    'x-o-platform': 'rweb',
-    'x-o-segment': 'oaoh',
-    'x-apollo-operation-name': 'ItemById',
-    'x-o-gql-query': 'query ItemById',
-    'x-o-item-id': String(itemId),
     'cookie': `assortmentStoreId=${walmartStoreId}; _m=9; _shcc=US; hasLocData=1; _intlbu=false`,
   };
 }
@@ -160,8 +129,7 @@ async function searchProducts(term, walmartStoreId) {
 
   // Path 2: __NEXT_DATA__ HTML response
   if (!stacks) {
-    stacks =
-      data?.props?.pageProps?.initialData?.searchResult?.itemStacks;
+    stacks = data?.props?.pageProps?.initialData?.searchResult?.itemStacks;
   }
 
   if (!stacks) return [];
@@ -169,52 +137,6 @@ async function searchProducts(term, walmartStoreId) {
   return stacks
     .flatMap(s => s.items || s.itemsV2 || [])
     .filter(i => i?.__typename === 'Product');
-}
-
-// ─── UPC ENRICHMENT ────────────────────────────────────────
-
-function buildItemUrl(itemId) {
-  const vars = encodeURIComponent(JSON.stringify({
-    isMobile: false,
-    channel: 'WWW',
-    version: 'v2',
-    postProcessingVersion: 2,
-    pageType: 'ItemPageGlobalDesktop',
-    tenant: 'WM_GLASS',
-    iId: String(itemId),
-    fBB: true,
-    fIdml: true,
-    fSeo: true,
-    fRev: false,
-    fP13: false,
-    fSId: true,
-  }));
-  return (
-    `https://www.walmart.com/orchestra/pdp/graphql/ItemById/` +
-    `${ITEM_BY_ID_HASH}/ip/${itemId}?variables=${vars}`
-  );
-}
-
-async function fetchUPC(itemId, walmartStoreId) {
-  const url = buildItemUrl(itemId);
-  const data = await safeFetch(url, itemHeaders(walmartStoreId, itemId));
-  if (!data) return null;
-
-  const prod = data?.data?.product;
-  if (!prod) return null;
-
-  // Try known UPC locations in the ItemById response.
-  // Log the first successful path so we can confirm and clean this up.
-  const candidates = [
-    prod?.upc,
-    prod?.item?.product?.upc,
-    prod?.primaryOffer?.upc,
-    prod?.offers?.[0]?.upc,
-    prod?.item?.upc,
-  ];
-
-  const upc = candidates.find(v => v && /^\d{10,14}$/.test(String(v)));
-  return upc ? String(upc) : null;
 }
 
 // ─── SUPABASE ──────────────────────────────────────────────
@@ -226,10 +148,9 @@ async function upsertProduct(upc, name, brand, imageUrl) {
       {
         upc,
         name,
-        brand: brand || null,
-        image_url: imageUrl || null,
+        brand:      brand    || null,
+        image_url:  imageUrl || null,
         name_source: 'walmart_sweep',
-        name_confidence: 'medium',
         last_scanned_at: new Date().toISOString(),
       },
       { onConflict: 'upc' }
@@ -242,13 +163,13 @@ async function insertObservation(upc, name, dbStoreId, price) {
   const { error } = await supabase
     .from('observations')
     .insert({
-      barcode: upc,
+      barcode:      upc,
       product_name: name,
-      store_id: dbStoreId,
+      store_id:     dbStoreId,
       price,
-      voided: false,
+      voided:       false,
     });
-  // Ignore duplicate key errors — same product may appear across search terms
+  // Ignore duplicate key errors — same product appears across search terms
   if (error && !error.message?.includes('duplicate')) {
     console.error(`[walmart-sweep] Observation error: ${error.message}`);
     return false;
@@ -265,11 +186,9 @@ async function main() {
   console.log(`[walmart-sweep] Terms:  ${SEARCH_TERMS.length}`);
   console.log(`[walmart-sweep] ════════════════════════════════\n`);
 
-  let totalProducts = 0;
+  let totalProducts     = 0;
   let totalObservations = 0;
-  let totalRealUPCs = 0;
-  let totalTempIds = 0;
-  let totalSkipped = 0;
+  let totalSkipped      = 0;
 
   for (const store of STORE_MAP) {
     console.log(`\n[walmart-sweep] ── ${store.city} (${store.walmartId}) ──`);
@@ -300,41 +219,16 @@ async function main() {
         const name     = item.name;
         const brand    = item.brand || null;
         const imageUrl = item.imageInfo?.thumbnailUrl || null;
-        const tempUpc  = `wm_${usItemId}`;
 
-        // Check if this Walmart item is already in the DB
-        const { data: existing } = await supabase
-          .from('products')
-          .select('upc')
-          .eq('upc', tempUpc)
-          .maybeSingle();
+        // Use wm_ prefix as temporary key — UPC enrichment is a separate pass
+        const upc = `wm_${usItemId}`;
 
-        let finalUpc;
-
-        if (!existing) {
-          // New item — attempt real UPC fetch
-          await sleep(DELAY_BETWEEN_ITEM_FETCHES);
-          const upc = await fetchUPC(usItemId, store.walmartId);
-
-          if (upc) {
-            finalUpc = upc;
-            totalRealUPCs++;
-            console.log(`    ✓ ${upc} — ${name.slice(0, 55)}`);
-          } else {
-            finalUpc = tempUpc;
-            totalTempIds++;
-            console.log(`    ○ ${tempUpc} — ${name.slice(0, 55)}`);
-          }
-        } else {
-          // Already stored — reuse whatever UPC we have
-          finalUpc = existing.upc;
-        }
-
-        const didProduct = await upsertProduct(finalUpc, name, brand, imageUrl);
-        const didObs     = await insertObservation(finalUpc, name, store.dbId, price);
+        const didProduct = await upsertProduct(upc, name, brand, imageUrl);
+        const didObs     = await insertObservation(upc, name, store.dbId, price);
 
         if (didProduct) totalProducts++;
         if (didObs)     totalObservations++;
+        else            totalSkipped++;
       }
     }
   }
@@ -343,9 +237,7 @@ async function main() {
   console.log(`[walmart-sweep] Complete — ${new Date().toISOString()}`);
   console.log(`[walmart-sweep]   Products upserted:     ${totalProducts}`);
   console.log(`[walmart-sweep]   Observations inserted: ${totalObservations}`);
-  console.log(`[walmart-sweep]   Real UPCs found:       ${totalRealUPCs}`);
-  console.log(`[walmart-sweep]   Temp wm_ IDs used:     ${totalTempIds}`);
-  console.log(`[walmart-sweep]   Skipped (no price):    ${totalSkipped}`);
+  console.log(`[walmart-sweep]   Skipped (dup/error):   ${totalSkipped}`);
   console.log(`[walmart-sweep] ════════════════════════════════\n`);
 }
 
