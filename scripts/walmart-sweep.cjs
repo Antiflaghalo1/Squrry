@@ -103,7 +103,6 @@ async function safeFetch(url, headers) {
     try { return JSON.parse(text); } catch {}
 
     // Fall back to __NEXT_DATA__ extraction via string ops
-    // (regex fails on 900KB+ payloads — string indexOf is reliable)
     const start = text.indexOf('<script id="__NEXT_DATA__"');
     if (start === -1) return null;
     const jsonStart = text.indexOf('>', start) + 1;
@@ -141,6 +140,18 @@ async function searchProducts(term, walmartStoreId) {
     .filter(i => i?.__typename === 'Product');
 }
 
+// ─── PRICE EXTRACTION ──────────────────────────────────────
+// Prefer currentPrice (what the customer actually pays) over
+// item.price which can be the list/was price before a rollback.
+function extractPrice(item) {
+  const currentPrice = item.priceInfo?.currentPrice?.price;
+  const wasPrice     = item.priceInfo?.wasPrice?.price;
+  const listPrice    = item.price;
+
+  // Always prefer what's shown to the customer right now
+  return currentPrice ?? listPrice ?? null;
+}
+
 // ─── SUPABASE ──────────────────────────────────────────────
 
 async function upsertProduct(upc, name, brand, imageUrl) {
@@ -150,9 +161,9 @@ async function upsertProduct(upc, name, brand, imageUrl) {
       {
         upc,
         name,
-        brand:      brand    || null,
-        image_url:  imageUrl || null,
-        name_source: 'walmart_sweep',
+        brand:           brand    || null,
+        image_url:       imageUrl || null,
+        name_source:     'walmart_sweep',
         last_scanned_at: new Date().toISOString(),
       },
       { onConflict: 'upc' }
@@ -207,7 +218,7 @@ async function main() {
 
       const inStock = items.filter(
         i => i.availabilityStatusV2?.value === 'IN_STOCK'
-          && (i.price ?? i.priceInfo?.currentPrice?.price)
+          && extractPrice(i) !== null
       );
 
       console.log(
@@ -216,7 +227,7 @@ async function main() {
       );
 
       for (const item of inStock) {
-        const price    = item.price ?? item.priceInfo?.currentPrice?.price;
+        const price    = extractPrice(item);
         const usItemId = item.usItemId;
         const name     = item.name;
         const brand    = item.brand || null;
