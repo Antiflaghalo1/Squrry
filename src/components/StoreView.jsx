@@ -54,7 +54,6 @@ export default function StoreView({ store, onBack }) {
       .select('barcode, price, created_at')
       .eq('store_id', store.id)
       .order('created_at', { ascending: false })
-      .limit(20)
 
     if (!obs || obs.length === 0) {
       setCommunity([])
