@@ -129,19 +129,16 @@ async function safeFetch(url, headers) {
     const text = await res.text();
 
     // Try direct JSON (XHR response path)
-    try {
-      return JSON.parse(text);
-    } catch {
-      // Fall back to __NEXT_DATA__ extraction from HTML
-      const m = text.match(
-        /<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/
-      );
-      if (m) {
-        try { return JSON.parse(m[1]); }
-        catch { return null; }
-      }
-      return null;
-    }
+    try { return JSON.parse(text); } catch {}
+
+    // Fall back to __NEXT_DATA__ extraction via string ops
+    // (regex fails on 900KB+ payloads — string indexOf is reliable)
+    const start = text.indexOf('<script id="__NEXT_DATA__"');
+    if (start === -1) return null;
+    const jsonStart = text.indexOf('>', start) + 1;
+    const jsonEnd   = text.indexOf('</script>', jsonStart);
+    try { return JSON.parse(text.slice(jsonStart, jsonEnd)); } catch {}
+    return null;
   } catch (err) {
     console.warn(`[walmart-sweep] Fetch error: ${err.message}`);
     return null;
@@ -170,7 +167,7 @@ async function searchProducts(term, walmartStoreId) {
   if (!stacks) return [];
 
   return stacks
-    .flatMap(s => s.itemsV2 || [])
+    .flatMap(s => s.items || s.itemsV2 || [])
     .filter(i => i?.__typename === 'Product');
 }
 
@@ -289,7 +286,7 @@ async function main() {
 
       const inStock = items.filter(
         i => i.availabilityStatusV2?.value === 'IN_STOCK'
-          && i.priceInfo?.currentPrice?.price
+          && (i.price ?? i.priceInfo?.currentPrice?.price)
       );
 
       console.log(
@@ -298,7 +295,7 @@ async function main() {
       );
 
       for (const item of inStock) {
-        const price    = item.priceInfo.currentPrice.price;
+        const price    = item.price ?? item.priceInfo?.currentPrice?.price;
         const usItemId = item.usItemId;
         const name     = item.name;
         const brand    = item.brand || null;
