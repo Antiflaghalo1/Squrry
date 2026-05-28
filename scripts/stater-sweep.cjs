@@ -38,20 +38,18 @@ const SEARCH_TERMS = [
   'laundry detergent', 'paper towels', 'toilet paper', 'trash bags',
 ];
 
-const PAGE_SIZE = 30;
-const DELAY_MS  = 1500;
+const PAGE_SIZE  = 30;
+const MAX_PAGES  = 10; // cap at 300 products per term
+const DELAY_MS   = 1500;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 // ─── TOKEN ─────────────────────────────────────────────────
-// Stater Bros uses Mercatus platform behind Cloudflare.
-// Token is a 24hr guest JWT — set STATER_TOKEN in .env from DevTools.
-// TODO Phase 2: auto-refresh via /api/account/me once we crack Cloudflare bypass.
 async function getGuestToken() {
   if (process.env.STATER_TOKEN) {
     console.log('[stater-sweep] ✅ Using token from env');
     return process.env.STATER_TOKEN;
   }
-  throw new Error('No STATER_TOKEN in .env — grab a fresh one from DevTools on staterbros.com and add it');
+  throw new Error('No STATER_TOKEN in .env — grab a fresh one from DevTools on staterbros.com');
 }
 
 // ─── SEARCH ────────────────────────────────────────────────
@@ -97,21 +95,20 @@ async function searchProducts(token, storeCode, keyword, page = 1) {
     if (res.status === 401) throw new Error('Token expired — grab a fresh one from DevTools');
     if (!res.ok) {
       console.warn(`[stater-sweep] Search HTTP ${res.status} for "${keyword}"`);
-      return { products: [] };
+      return { products: [], totalPages: 0 };
     }
 
     const data = await res.json();
 
-    if (page === 1 && Object.keys(data).length) {
-      console.log('[stater-sweep] Search response keys:', Object.keys(data));
-    }
+    // Response shape: data.Data.Records[0].Results
+    const records    = data?.Data?.Records;
+    const products   = records?.[0]?.Results || [];
+    const totalPages = data?.Data?.TotalPages || 0;
 
-    return {
-      products: data?.products || data?.items || data?.data?.products || [],
-    };
+    return { products, totalPages };
   } catch (err) {
     console.warn(`[stater-sweep] Search error "${keyword}": ${err.message}`);
-    return { products: [] };
+    return { products: [], totalPages: 0 };
   }
 }
 
@@ -136,13 +133,14 @@ async function getOffers(token, storeCode, upcs) {
 
     if (!res.ok) return {};
 
-    const data = await res.json();
+    const data   = await res.json();
     const offerMap = {};
-    const offers = data?.offers || data?.data || data || [];
+    const offers = data?.Data || data?.offers || data || [];
+
     if (Array.isArray(offers)) {
       for (const offer of offers) {
-        const upc       = offer.upc || offer.productCode || offer.code;
-        const salePrice = offer.salePrice || offer.offerPrice || offer.price;
+        const upc       = offer.Upc || offer.upc || offer.productCode;
+        const salePrice = offer.SalePrice || offer.salePrice || offer.offerPrice;
         if (upc && salePrice) offerMap[upc] = parseFloat(salePrice);
       }
     }
@@ -154,26 +152,20 @@ async function getOffers(token, storeCode, upcs) {
 }
 
 // ─── ITEM EXTRACTION ───────────────────────────────────────
-let loggedSample = false;
 function extractItem(product) {
-  if (!loggedSample) {
-    console.log('[stater-sweep] Sample product keys:', Object.keys(product));
-    loggedSample = true;
-  }
-
-  const upc   = product.upc || product.productCode || product.code || product.id;
-  const name  = product.name || product.productName || product.displayName;
-  const price = product.price || product.regularPrice || product.listPrice;
+  const upc   = product.Gtin;
+  const name  = product.Title?.en || product.DisplayName?.en;
+  const price = product.Price;
 
   if (!upc || !name || !price) return null;
 
   return {
-    upc:      String(upc).replace(/\D/g, '').padStart(14, '0'),
+    upc,
     name,
-    brand:    product.brand || product.brandName || null,
-    imageUrl: product.imageUrl || product.image || product.thumbnailUrl || null,
+    brand:    product.Brand?.Name?.en || null,
+    imageUrl: product.Images?.[0]?.Large || null,
     price:    parseFloat(price),
-    category: product.category || product.departmentName || null,
+    category: product.Categories?.Level1?.Name?.en || null,
   };
 }
 
@@ -225,11 +217,11 @@ async function main() {
 
   for (const term of SEARCH_TERMS) {
     await sleep(DELAY_MS);
-    let page = 1;
+    let page      = 1;
     let termCount = 0;
 
     while (true) {
-      const { products } = await searchProducts(token, IE_STORES[0].storeCode, term, page);
+      const { products, totalPages } = await searchProducts(token, IE_STORES[0].storeCode, term, page);
       if (!products.length) break;
 
       for (const product of products) {
@@ -241,7 +233,7 @@ async function main() {
         }
       }
 
-      if (products.length < PAGE_SIZE) break;
+      if (page >= totalPages || page >= MAX_PAGES) break;
       page++;
       await sleep(DELAY_MS);
     }
