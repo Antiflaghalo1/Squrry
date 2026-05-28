@@ -38,18 +38,56 @@ const SEARCH_TERMS = [
   'laundry detergent', 'paper towels', 'toilet paper', 'trash bags',
 ];
 
-const PAGE_SIZE  = 30;
-const MAX_PAGES  = 10; // cap at 300 products per term
-const DELAY_MS   = 1500;
+const PAGE_SIZE = 30;
+const MAX_PAGES = 10;
+const DELAY_MS  = 1500;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 // ─── TOKEN ─────────────────────────────────────────────────
+// Launches headless Chromium via Playwright.
+// Passes Cloudflare naturally (real browser), intercepts the
+// outgoing Mercatus API request and pulls the Bearer token.
+// Falls back to STATER_TOKEN env var if set (manual override).
 async function getGuestToken() {
   if (process.env.STATER_TOKEN) {
-    console.log('[stater-sweep] ✅ Using token from env');
+    console.log('[stater-sweep] ✅ Using token from STATER_TOKEN env');
     return process.env.STATER_TOKEN;
   }
-  throw new Error('No STATER_TOKEN in .env — grab a fresh one from DevTools on staterbros.com');
+
+  console.log('[stater-sweep] Launching headless browser to fetch token...');
+
+  const { chromium } = require('playwright');
+
+  const browser = await chromium.launch({ headless: true });
+  const context = await browser.newContext({
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36',
+  });
+  const page = await context.newPage();
+
+  let token = null;
+
+  // Intercept every outgoing request — grab Bearer token when Mercatus fires
+  page.on('request', request => {
+    if (request.url().includes('api-dxpro.mercatus.com')) {
+      const auth = request.headers()['authorization'];
+      if (auth?.startsWith('Bearer ')) {
+        token = auth.replace('Bearer ', '');
+      }
+    }
+  });
+
+  // Navigate to search — triggers the Mercatus API call naturally
+  await page.goto('https://www.staterbros.com/en/groceries/search?kw=eggs', {
+    waitUntil: 'networkidle',
+    timeout:   45000,
+  });
+
+  await browser.close();
+
+  if (!token) throw new Error('Browser loaded but token not captured — Cloudflare may have intervened');
+
+  console.log('[stater-sweep] ✅ Token extracted via browser');
+  return token;
 }
 
 // ─── SEARCH ────────────────────────────────────────────────
@@ -62,7 +100,7 @@ async function searchProducts(token, storeCode, keyword, page = 1) {
         'authorization':  `Bearer ${token}`,
         'content-type':   'application/json',
         'tenantidentify': TENANT_ID,
-        'user-agent':     'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
+        'user-agent':     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36',
         'origin':         'https://www.staterbros.com',
         'referer':        'https://www.staterbros.com/',
         'dnt':            '1',
@@ -92,15 +130,13 @@ async function searchProducts(token, storeCode, keyword, page = 1) {
       }),
     });
 
-    if (res.status === 401) throw new Error('Token expired — grab a fresh one from DevTools');
+    if (res.status === 401) throw new Error('Token expired or invalid');
     if (!res.ok) {
       console.warn(`[stater-sweep] Search HTTP ${res.status} for "${keyword}"`);
       return { products: [], totalPages: 0 };
     }
 
-    const data = await res.json();
-
-    // Response shape: data.Data.Records[0].Results
+    const data       = await res.json();
     const records    = data?.Data?.Records;
     const products   = records?.[0]?.Results || [];
     const totalPages = data?.Data?.TotalPages || 0;
@@ -123,7 +159,7 @@ async function getOffers(token, storeCode, upcs) {
         'authorization':  `Bearer ${token}`,
         'content-type':   'application/json',
         'tenantidentify': TENANT_ID,
-        'user-agent':     'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
+        'user-agent':     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36',
         'origin':         'https://www.staterbros.com',
         'referer':        'https://www.staterbros.com/',
         'dnt':            '1',
@@ -133,9 +169,9 @@ async function getOffers(token, storeCode, upcs) {
 
     if (!res.ok) return {};
 
-    const data   = await res.json();
+    const data     = await res.json();
     const offerMap = {};
-    const offers = data?.Data || data?.offers || data || [];
+    const offers   = data?.Data || data?.offers || data || [];
 
     if (Array.isArray(offers)) {
       for (const offer of offers) {
@@ -186,7 +222,7 @@ async function upsertProduct(item) {
 
 async function insertObservation(item, dbStoreId, salePrice) {
   const finalPrice = salePrice ?? item.price;
-  const { error } = await supabase.from('observations').insert({
+  const { error }  = await supabase.from('observations').insert({
     barcode:      item.upc,
     product_name: item.name,
     store_id:     dbStoreId,
