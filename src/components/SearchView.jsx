@@ -1,7 +1,28 @@
 import { useState, useEffect, useRef } from 'react'
-import { Search } from 'lucide-react'
+import { Search, Heart, AlertTriangle } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { getAllStores } from '../data/storeService'
+import ReportModal from './ReportModal'
+
+function categoryEmoji(name) {
+  const n = (name || '').toLowerCase()
+  if (/watermelon|apple|banana|grape|berry|strawberr|blueberr|raspberr|peach|pear|mango|pineapple|orange|lemon|lime|cherry|melon|avocado|tomato|lettuce|spinach|kale|broccoli|carrot|celery|pepper|cucumber|zucchini|mushroom|onion|garlic|potato|corn|peas|bean|asparagus|cauliflower/.test(n)) return '🥬'
+  if (/chicken|beef|pork|turkey|salmon|tuna|shrimp|steak|ground|sausage|bacon|ham|lamb|fish|seafood|tilapia|cod|crab|lobster/.test(n)) return '🥩'
+  if (/milk|yogurt|cheese|butter|cream|dairy|egg/.test(n)) return '🥛'
+  if (/bread|bagel|muffin|croissant|bun|roll|tortilla|wrap|pita|cake|cookie|brownie|pastry/.test(n)) return '🥖'
+  if (/juice|water|soda|pop|drink|tea|coffee|lemonade|cola|beer|wine|sparkling/.test(n)) return '🥤'
+  if (/chip|cracker|pretzel|popcorn|snack|nut|almond|cashew|granola|trail mix/.test(n)) return '🍿'
+  if (/frozen|ice cream|pizza|waffle|burrito/.test(n)) return '🧊'
+  if (/pasta|noodle|rice|quinoa|oat|cereal|flour|sugar|oil|sauce|soup|canned|salsa|peanut butter|jelly|jam|mayo|mustard|ketchup|vinegar|syrup/.test(n)) return '🥫'
+  return '🛒'
+}
+
+function freshnessBadge(ts) {
+  const days = (Date.now() - new Date(ts).getTime()) / 86400000
+  if (days <= 7) return { label: '🟢 Fresh', cls: 'freshness-fresh' }
+  if (days <= 30) return { label: '🟡 Aging', cls: 'freshness-aging' }
+  return { label: '🔴 Stale', cls: 'freshness-stale' }
+}
 
 export default function SearchView({ onBack, onStoreSelect }) {
   const [query, setQuery] = useState('')
@@ -12,6 +33,7 @@ export default function SearchView({ onBack, onStoreSelect }) {
   const [searched, setSearched] = useState(false)
   const [stores, setStores] = useState([])
   const [selectedDeal, setSelectedDeal] = useState(null)
+  const [reportTarget, setReportTarget] = useState(null)
   const inputRef = useRef(null)
   const timerRef = useRef(null)
 
@@ -36,6 +58,7 @@ export default function SearchView({ onBack, onStoreSelect }) {
   }, [query])
 
   async function runSearch(q) {
+    const today = new Date().toISOString().split('T')[0]
     const [{ data: prodData }, { data: flippData }, { data: storeData }] = await Promise.all([
       supabase
         .from('products')
@@ -44,9 +67,10 @@ export default function SearchView({ onBack, onStoreSelect }) {
         .limit(10),
       supabase
         .from('flipp_observations')
-        .select('product_name, store_id, price, sale_type, regular_price, promo_description, merchant_name, clean_image_url')
+        .select('product_name, store_id, price, regular_price, promo_description, clean_image_url, post_price_text, valid_to, merchant_name')
         .ilike('product_name', `%${q}%`)
         .gt('price', 0)
+        .or(`valid_to.is.null,valid_to.gte.${today}`)
         .limit(10),
       supabase
         .from('stores')
@@ -61,7 +85,7 @@ export default function SearchView({ onBack, onStoreSelect }) {
       const upcs = enriched.map(p => String(p.upc))
       const { data: obs } = await supabase
         .from('observations')
-        .select('barcode, price, created_at')
+        .select('barcode, price, store_id, created_at')
         .in('barcode', upcs)
         .gt('price', 0)
         .lte('price', 500)
@@ -69,11 +93,15 @@ export default function SearchView({ onBack, onStoreSelect }) {
 
       const latestByUpc = {}
       for (const o of obs || []) {
-        if (!(o.barcode in latestByUpc)) latestByUpc[o.barcode] = o.price
+        if (!(o.barcode in latestByUpc)) {
+          latestByUpc[o.barcode] = { price: o.price, store_id: o.store_id, created_at: o.created_at }
+        }
       }
       enriched = enriched.map(p => ({
         ...p,
-        latestPrice: latestByUpc[String(p.upc)] ?? null,
+        latestPrice: latestByUpc[String(p.upc)]?.price ?? null,
+        latestStoreId: latestByUpc[String(p.upc)]?.store_id ?? null,
+        latestCreatedAt: latestByUpc[String(p.upc)]?.created_at ?? null,
       }))
     }
 
@@ -98,6 +126,14 @@ export default function SearchView({ onBack, onStoreSelect }) {
 
   return (
     <div className="search-view">
+      {reportTarget && (
+        <ReportModal
+          targetId={reportTarget.targetId}
+          targetName={reportTarget.targetName}
+          onClose={() => setReportTarget(null)}
+        />
+      )}
+
       <button className="back-btn" onClick={onBack}>← Back</button>
 
       <div className="search-input-wrap">
@@ -147,43 +183,42 @@ export default function SearchView({ onBack, onStoreSelect }) {
             <div className="search-section">
               <div className="search-section-title">Community Scanned</div>
               <div className="recent-list">
-                {products.map(item => (
-                  <div key={item.upc} className="recent-card">
-                    {item.image_url
-                      ? <img src={item.image_url} alt={item.name} className="recent-thumb" />
-                      : <div className="recent-thumb recent-thumb-placeholder">🛒</div>
-                    }
-                    <div className="recent-info">
-                      <div className="recent-name">{item.name}</div>
-                      {(item.normalized_category || item.category) && (
-                        <div className="recent-cat">{item.normalized_category || item.category}</div>
-                      )}
-                      {item.latestPrice != null && (
-                        <div className="recent-price">${item.latestPrice.toFixed(2)}</div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {deals.length > 0 && (
-            <div className="search-section">
-              <div className="search-section-title">This Week's Deals</div>
-              <div className="recent-list">
-                {deals.map((deal, i) => {
-                  const storeName = stores.find(s => String(s.id) === String(deal.store_id))?.name || deal.store_id
+                {products.map(item => {
+                  const storeName = item.latestStoreId
+                    ? stores.find(s => String(s.id) === String(item.latestStoreId))?.name || null
+                    : null
+                  const badge = item.latestCreatedAt ? freshnessBadge(item.latestCreatedAt) : null
                   return (
-                    <div key={i} className="recent-card" onClick={() => setSelectedDeal(deal)} style={{cursor:'pointer'}}>
-                      <div className="recent-thumb recent-thumb-placeholder">🏷️</div>
+                    <div key={item.upc} className="recent-card">
+                      {item.image_url
+                        ? <img src={item.image_url} alt={item.name} className="recent-thumb" />
+                        : <div className="recent-thumb recent-thumb-placeholder">🛒</div>
+                      }
                       <div className="recent-info">
-                        <div className="recent-name">{deal.product_name}</div>
-                        <div className="search-deal-price">${Number(deal.price).toFixed(2)}</div>
-                        {deal.regular_price && <span style={{fontSize:11, color:'var(--text-muted)', textDecoration:'line-through'}}>${Number(deal.regular_price).toFixed(2)}</span>}
-                        {deal.promo_description && <span className="store-deal-promo-badge">{deal.promo_description}</span>}
-                        {storeName && <div className="recent-cat">{storeName}</div>}
-                        <span className="sale-badge search-sale-badge">On Sale</span>
+                        <div className="recent-name">{item.name}</div>
+                        {(item.normalized_category || item.category) && (
+                          <div className="recent-cat">{item.normalized_category || item.category}</div>
+                        )}
+                        {item.latestPrice != null && (
+                          <div className="recent-price">${item.latestPrice.toFixed(2)}</div>
+                        )}
+                        {storeName && (
+                          <div className="recent-cat">{storeName}</div>
+                        )}
+                        {badge && (
+                          <span className={`freshness-badge ${badge.cls}`}>{badge.label}</span>
+                        )}
+                        <div className="saved-action-row">
+                          <button className="save-heart-btn">
+                            <Heart size={13} /> Save
+                          </button>
+                          <button
+                            className="save-heart-btn"
+                            onClick={() => setReportTarget({ targetId: String(item.upc), targetName: item.name })}
+                          >
+                            <AlertTriangle size={13} /> Report
+                          </button>
+                        </div>
                       </div>
                     </div>
                   )
@@ -191,22 +226,62 @@ export default function SearchView({ onBack, onStoreSelect }) {
               </div>
             </div>
           )}
+
+          {deals.length > 0 && (
+            <div className="search-section">
+              <div className="search-section-title">This Week's Deals</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {deals.map((deal, i) => (
+                  <div
+                    key={i}
+                    onClick={() => setSelectedDeal(deal)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'var(--card-bg)', borderRadius: 12, padding: '10px 12px', cursor: 'pointer', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}
+                  >
+                    {deal.clean_image_url
+                      ? <img src={deal.clean_image_url} alt={deal.product_name} style={{ width: 60, height: 60, objectFit: 'contain', borderRadius: 8, flexShrink: 0 }} />
+                      : <div style={{ width: 60, height: 60, fontSize: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{categoryEmoji(deal.product_name)}</div>
+                    }
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{deal.product_name}</div>
+                      {deal.merchant_name && <div style={{ fontSize: 12, color: 'var(--green)', opacity: 0.8, marginBottom: 3 }}>{deal.merchant_name}</div>}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        {deal.regular_price && <span style={{ fontSize: 12, color: 'var(--text-muted)', textDecoration: 'line-through', marginRight: 4 }}>${Number(deal.regular_price).toFixed(2)}</span>}
+                        <span style={{ color: 'var(--green)', fontWeight: 700, fontSize: 15 }}>${Number(deal.price).toFixed(2)}</span>
+                      </div>
+                      {deal.promo_description && <span className="store-deal-promo-badge" style={{ marginTop: 4, display: 'inline-block' }}>{deal.promo_description}</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
+
       {selectedDeal && (
-        <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.5)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={() => setSelectedDeal(null)}>
-          <div style={{background:'var(--card-bg)',borderRadius:16,padding:24,maxWidth:320,width:'90%',position:'relative',textAlign:'center'}} onClick={e => e.stopPropagation()}>
-            <button onClick={() => setSelectedDeal(null)} style={{position:'absolute',top:12,right:12,background:'none',border:'none',fontSize:18,cursor:'pointer',color:'var(--text-muted)'}}>✕</button>
-            {selectedDeal.clean_image_url && <img src={selectedDeal.clean_image_url} alt={selectedDeal.product_name} style={{maxWidth:180,maxHeight:180,objectFit:'contain',display:'block',margin:'0 auto 12px'}} />}
-            <div style={{fontWeight:700,fontSize:16,marginBottom:8}}>{selectedDeal.product_name}</div>
-            <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8,marginBottom:8}}>
-              {selectedDeal.regular_price && <span style={{fontSize:14,color:'var(--text-muted)',textDecoration:'line-through'}}>${Number(selectedDeal.regular_price).toFixed(2)}</span>}
-              <span style={{fontSize:20,fontWeight:800,color:'var(--green)'}}>${Number(selectedDeal.price).toFixed(2)}</span>
+        <div className="store-deal-modal-overlay" onClick={() => setSelectedDeal(null)}>
+          <div className="store-deal-modal" onClick={e => e.stopPropagation()}>
+            <button onClick={() => setSelectedDeal(null)} style={{ position: 'absolute', top: 12, right: 12, background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: 'var(--text-muted)' }}>✕</button>
+            {selectedDeal.clean_image_url && (
+              <img src={selectedDeal.clean_image_url} alt={selectedDeal.product_name} style={{ maxWidth: '180px', maxHeight: '180px', objectFit: 'contain', display: 'block', margin: '0 auto 12px' }} />
+            )}
+            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8 }}>{selectedDeal.product_name}</div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 8 }}>
+              {selectedDeal.regular_price && (
+                <span style={{ fontSize: 14, color: 'var(--text-muted)', textDecoration: 'line-through' }}>${Number(selectedDeal.regular_price).toFixed(2)}</span>
+              )}
+              <span style={{ fontSize: 20, fontWeight: 800, color: 'var(--green)' }}>${Number(selectedDeal.price).toFixed(2)}</span>
             </div>
-            {selectedDeal.promo_description && <span className="store-deal-promo-badge" style={{display:'inline-block',marginBottom:8}}>{selectedDeal.promo_description}</span>}
-            {selectedDeal.post_price_text && <div style={{fontSize:10,color:'var(--text-muted)',marginBottom:8}}>{selectedDeal.post_price_text}</div>}
-            {selectedDeal.valid_to && <div style={{fontSize:12,color:'var(--text-muted)'}}>Valid to: {new Date(selectedDeal.valid_to).toLocaleDateString()}</div>}
-            <div style={{fontSize:12,color:'var(--green)',marginTop:8,fontWeight:600}}>{selectedDeal.merchant_name}</div>
+            {selectedDeal.promo_description && (
+              <span className="store-deal-promo-badge" style={{ display: 'inline-block', marginBottom: 8 }}>{selectedDeal.promo_description}</span>
+            )}
+            {selectedDeal.post_price_text && (
+              <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 8 }}>{selectedDeal.post_price_text}</div>
+            )}
+            {selectedDeal.valid_to && (
+              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Valid to: {new Date(selectedDeal.valid_to).toLocaleDateString()}</div>
+            )}
+            <div style={{ fontSize: 12, color: 'var(--green)', marginTop: 8, fontWeight: 600 }}>{selectedDeal.merchant_name}</div>
           </div>
         </div>
       )}
