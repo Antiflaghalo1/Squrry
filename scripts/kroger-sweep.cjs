@@ -133,44 +133,6 @@ function extractItem(product, locationId) {
   };
 }
 
-// ─── SUPABASE WRITES ───────────────────────────────────────
-async function upsertProduct(item) {
-  const { error } = await supabase.from('products').upsert({
-    upc:             item.upc,
-    name:            item.name,
-    brand:           item.brand || null,
-    image_url:       item.imageUrl || null,
-    raw_category:    item.category || null,
-    name_source:     'kroger_sweep',
-    last_scanned_at: new Date().toISOString(),
-  }, { onConflict: 'upc' });
-  if (error) console.error(`[kroger-sweep] Product error: ${error.message}`);
-  return !error;
-}
-
-async function insertObservation(item, dbStoreId) {
-  const finalPrice = item.salePrice ?? item.price;
-  const { error } = await supabase.from('observations').insert({
-    barcode:      item.upc,
-    product_name: item.name,
-    store_id:     dbStoreId,
-    price:        finalPrice,
-    voided:       false,
-  });
-  if (error && !error.message?.includes('duplicate')) {
-    console.error(`[kroger-sweep] Observation error: ${error.message}`);
-    return false;
-  }
-  await supabase.from('price_history').insert({
-    barcode:     item.upc,
-    store_id:    dbStoreId,
-    price:       finalPrice,
-    source:      'kroger_sweep',
-    recorded_at: new Date().toISOString(),
-  });
-  return true;
-}
-
 // ─── STORE ID MAPPING ──────────────────────────────────────
 // Maps Kroger locationId to your Supabase store id
 // We'll discover and log stores on first run so you can add them
@@ -265,13 +227,57 @@ async function main() {
 
     console.log(`[kroger-sweep]   Catalog: ${storeItems.size} unique products`);
 
-    // Write to Supabase
-    for (const item of storeItems.values()) {
-      const didProduct = await upsertProduct(item);
-      if (didProduct) totalProducts++;
+    // Build batch arrays
+    const now = new Date().toISOString();
+    const productsToUpsert     = [];
+    const observationsToInsert = [];
+    const priceHistoryToInsert = [];
 
-      const didObs = await insertObservation(item, storeInfo.dbStoreId);
-      if (didObs) totalObs++;
+    for (const item of storeItems.values()) {
+      productsToUpsert.push({
+        upc:             item.upc,
+        name:            item.name,
+        brand:           item.brand || null,
+        image_url:       item.imageUrl || null,
+        raw_category:    item.category || null,
+        name_source:     'kroger_sweep',
+        last_scanned_at: now,
+      });
+
+      const finalPrice = item.salePrice ?? item.price;
+      observationsToInsert.push({
+        barcode:      item.upc,
+        store_id:     storeInfo.dbStoreId,
+        price:        finalPrice,
+        product_name: item.name,
+        voided:       false,
+      });
+
+      priceHistoryToInsert.push({
+        barcode:     item.upc,
+        store_id:    storeInfo.dbStoreId,
+        price:       finalPrice,
+        source:      'kroger_sweep',
+        recorded_at: now,
+      });
+    }
+
+    // Write to Supabase in batches
+    for (let i = 0; i < productsToUpsert.length; i += 500) {
+      const batch = productsToUpsert.slice(i, i + 500);
+      await supabase.from('products').upsert(batch, { onConflict: 'upc' });
+    }
+    totalProducts += productsToUpsert.length;
+
+    for (let i = 0; i < observationsToInsert.length; i += 500) {
+      const batch = observationsToInsert.slice(i, i + 500);
+      await supabase.from('observations').upsert(batch, { onConflict: 'barcode,store_id' });
+    }
+    totalObs += observationsToInsert.length;
+
+    for (let i = 0; i < priceHistoryToInsert.length; i += 500) {
+      const batch = priceHistoryToInsert.slice(i, i + 500);
+      await supabase.from('price_history').insert(batch);
     }
 
     console.log(`[kroger-sweep]   ✅ ${storeInfo.name} done`);
