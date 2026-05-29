@@ -14,6 +14,7 @@ import BudgetView from './components/BudgetView'
 import CategoriesView from './components/CategoriesView'
 import SavedItemsView from './components/SavedItemsView'
 import HomeView from './components/HomeView'
+import AllDealsView from './components/AllDealsView'
 import SearchView from './components/SearchView'
 import StoreView from './components/StoreView'
 import EditProfileView from './components/EditProfileView'
@@ -559,8 +560,11 @@ export default function App() {
           onBudgetNav={() => navTo('budget')}
           onSeeAll={() => navTo('recent')}
           onStoreSelect={(store) => { setSelectedStore(store); navTo('store') }}
+          onSeeAllDeals={() => navTo('allDeals')}
         />
       )}
+
+      {view === 'allDeals' && <AllDealsView onBack={goBack} />}
 
       {view === 'search' && (
         <SearchView
