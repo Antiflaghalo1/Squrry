@@ -142,6 +142,10 @@ export default function CategoriesView({ onBack, userId, savedUpcs = new Set(), 
       setBrowseLoading(true);
 
       if (browsingUntagged) {
+        if (untaggedItems && untaggedItems.length > 0) {
+          if (!cancelled) setBrowseLoading(false);
+          return;
+        }
         const u = await fetchUntaggedItems(selectedDept.normalizedCategory);
         if (!cancelled) setUntaggedItems(u || []);
       } else if (selectedSubcategory) {
@@ -180,49 +184,19 @@ export default function CategoriesView({ onBack, userId, savedUpcs = new Set(), 
 
   function handleBack() {
     if (browsingUntagged) {
-      setBrowsingUntagged(false);
-      setUntaggedItems([]);
-      return;
+      setBrowsingUntagged(false)
+      setUntaggedItems([])
+    } else if (selectedSubcategory) {
+      setSelectedSubcategory(null)
+      setDrillData(null)
+    } else if (selectedDept) {
+      setSelectedDept(null)
+      setDepartmentBrowse(null)
+      setUntaggedItems([])
+      setBrowsingUntagged(false)
+    } else {
+      setExpanded(null)
     }
-
-    // If any filter is set, pop the LATEST one (by schema order)
-    const schema = drillData?.schema;
-    const anyFilterSet =
-      filters.attributes.length > 0
-      || filters.variant
-      || filters.size_grade
-      || filters.package;
-
-    if (schema && anyFilterSet) {
-      const sortedKeys = Object.entries(schema)
-        .sort(([, a], [, b]) => (a.order ?? 99) - (b.order ?? 99))
-        .map(([k]) => k);
-
-      // Walk reverse — pop the deepest filled dimension
-      for (let i = sortedKeys.length - 1; i >= 0; i--) {
-        const key = sortedKeys[i];
-        if (key === 'attributes' && filters.attributes.length > 0) {
-          setFilters(prev => ({ ...prev, attributes: [] }));
-          return;
-        }
-        if (key !== 'attributes' && filters[key]) {
-          setFilters(prev => ({ ...prev, [key]: null }));
-          return;
-        }
-      }
-    }
-
-    if (selectedSubcategory) {
-      setSelectedSubcategory(null);
-      setFilters({ attributes: [], variant: null, size_grade: null, package: null });
-      setDrillData(null);
-      return;
-    }
-
-    // Back to Level 0
-    setSelectedDept(null);
-    setDepartmentBrowse(null);
-    setExpanded(null);
   }
 
   function handleSubcategoryClick(subcategoryKey) {
