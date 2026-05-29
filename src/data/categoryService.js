@@ -97,7 +97,7 @@ export async function fetchDepartmentBrowse(normalizedCategory) {
   if (!allProducts) return { subcategories: [], untaggedCount: 0 };
 
   const tagged = (allProducts || []).filter(p =>
-    p.subcategory && p.variant && p.size_grade && p.package
+    p.subcategory && p.variant && p.package
   );
   const untaggedCount = allProducts.length - tagged.length;
 
