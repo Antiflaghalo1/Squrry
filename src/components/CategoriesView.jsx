@@ -186,6 +186,8 @@ export default function CategoriesView({ onBack, userId, savedUpcs = new Set(), 
     if (browsingUntagged) {
       setBrowsingUntagged(false)
       setUntaggedItems([])
+      setSelectedDept(null)
+      setDepartmentBrowse(null)
     } else if (selectedSubcategory) {
       setSelectedSubcategory(null)
       setDrillData(null)
