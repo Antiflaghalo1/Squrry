@@ -232,10 +232,6 @@ export default function HomeView({ user, firstName, budget, onBudgetNav, onSeeAl
           <div className="home-deals-scroll">
             {deals.map((deal, i) => (
               <div key={i} className="home-deal-card" style={{ cursor: 'pointer' }} onClick={() => setSelectedDeal(deal)}>
-                {deal.clean_image_url
-                  ? <img src={deal.clean_image_url} alt={deal.product_name} style={{width:'100%', height:'80px', objectFit:'contain', marginBottom:6, borderRadius:8}} />
-                  : <div style={{fontSize:32, textAlign:'center', marginBottom:6}}>{categoryEmoji(deal.product_name)}</div>
-                }
                 <div className="home-deal-name">{categoryEmoji(deal.product_name)} {deal.product_name}</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
                   {deal.regular_price && <span style={{ fontSize: 12, color: 'var(--text-muted)', textDecoration: 'line-through' }}>${Number(deal.regular_price).toFixed(2)}</span>}

@@ -19,6 +19,8 @@ export default function AllDealsView({ onBack }) {
   const [loading, setLoading] = useState(true)
   const [selectedDeal, setSelectedDeal] = useState(null)
   const [filterMerchant, setFilterMerchant] = useState('All')
+  const [page, setPage] = useState(0)
+  const [hasMore, setHasMore] = useState(true)
 
   useEffect(() => {
     async function loadDeals() {
@@ -31,7 +33,7 @@ export default function AllDealsView({ onBack }) {
           .gt('price', 0)
           .or(`valid_to.is.null,valid_to.gte.${today}`)
           .order('price', { ascending: true })
-          .limit(200)
+          .range(0, 49)
         const dedupeMap = new Map()
         for (const item of (data || [])) {
           const key = `${item.product_name}|${item.merchant_name}`
@@ -40,6 +42,7 @@ export default function AllDealsView({ onBack }) {
           }
         }
         setDeals(Array.from(dedupeMap.values()))
+        setHasMore((data || []).length >= 50)
       } catch {
         setDeals([])
       }
@@ -47,6 +50,27 @@ export default function AllDealsView({ onBack }) {
     }
     loadDeals()
   }, [])
+
+  async function loadMore() {
+    try {
+      const today = new Date().toISOString().split('T')[0]
+      const from = (page + 1) * 50
+      const to = (page + 2) * 50 - 1
+      const { data } = await supabase
+        .from('flipp_observations')
+        .select('product_name, store_id, price, regular_price, promo_description, clean_image_url, post_price_text, valid_to, merchant_name')
+        .gt('price', 0)
+        .or(`valid_to.is.null,valid_to.gte.${today}`)
+        .order('price', { ascending: true })
+        .range(from, to)
+      const newItems = data || []
+      setDeals(prev => [...prev, ...newItems])
+      setPage(p => p + 1)
+      if (newItems.length < 50) setHasMore(false)
+    } catch {
+      setHasMore(false)
+    }
+  }
 
   const merchants = ['All', ...Array.from(new Set(deals.map(d => d.merchant_name).filter(Boolean)))]
   const filtered = filterMerchant === 'All' ? deals : deals.filter(d => d.merchant_name === filterMerchant)
@@ -103,13 +127,14 @@ export default function AllDealsView({ onBack }) {
                 <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{deal.product_name}</div>
                 {deal.merchant_name && <div style={{ fontSize: 12, color: 'var(--green)', opacity: 0.8, marginBottom: 3 }}>{deal.merchant_name}</div>}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  {deal.regular_price && <span style={{ fontSize: 12, color: 'var(--text-muted)', textDecoration: 'line-through' }}>${Number(deal.regular_price).toFixed(2)}</span>}
+                  {deal.regular_price && <span style={{ fontSize: 12, color: 'var(--text-muted)', textDecoration: 'line-through', marginRight: 4 }}>${Number(deal.regular_price).toFixed(2)}</span>}
                   <span style={{ color: 'var(--green)', fontWeight: 700, fontSize: 15 }}>${Number(deal.price).toFixed(2)}</span>
                 </div>
                 {deal.promo_description && <span className="store-deal-promo-badge" style={{ marginTop: 4, display: 'inline-block' }}>{deal.promo_description}</span>}
               </div>
             </div>
           ))}
+          {hasMore && <button onClick={loadMore} style={{ width: '100%', padding: '12px', background: 'transparent', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--green)', fontWeight: 700, cursor: 'pointer', margin: '16px 0' }}>Load more deals</button>}
         </div>
       )}
 
