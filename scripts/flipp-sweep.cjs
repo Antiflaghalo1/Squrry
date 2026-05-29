@@ -1,7 +1,7 @@
 const { createClient } = require('@supabase/supabase-js')
 const ws = require('ws')
 
-const SUPABASE_URL = process.env.SUPABASE_URL
+const SUPABASE_URL        = process.env.SUPABASE_URL
 const SUPABASE_SECRET_KEY = process.env.SUPABASE_SECRET_KEY
 
 if (!SUPABASE_URL || !SUPABASE_SECRET_KEY) {
@@ -78,16 +78,37 @@ function parsePrice(priceStr) {
   return isNaN(price) || price <= 0 || price > 500 ? null : price
 }
 
+// ─── PROMO PARSING ────────────────────────────────────────
+// Extracts min qty from strings like:
+// "When you buy 2", "2 for $1.98", "Buy 2 get 1 free", "must buy 3"
+function parseMinQty(text) {
+  if (!text) return null
+  const match = text.match(/\b(\d+)\b/)
+  if (!match) return null
+  const qty = parseInt(match[1])
+  return qty > 1 && qty <= 20 ? qty : null
+}
+
+// Builds a clean human-readable promo string from available fields
+function buildPromoDescription(item) {
+  const parts = []
+  if (item.pre_price_text)  parts.push(item.pre_price_text.trim())
+  if (item.sale_story)      parts.push(item.sale_story.trim())
+  if (item.disclaimer)      parts.push(item.disclaimer.trim())
+  if (item.description && item.description !== item.name) parts.push(item.description.trim())
+  // Deduplicate and join
+  return [...new Set(parts)].join(' · ') || null
+}
+
 async function main() {
-  console.log('BasketSplit Flipp Sweep starting...')
+  console.log('Squrry Flipp Sweep starting...')
   console.log('Zip codes: ' + ZIP_CODES.join(', '))
 
-  const seen = new Set()
+  const seen     = new Set()
   const toInsert = []
 
   for (const zip of ZIP_CODES) {
     console.log('\nFetching flyers for ' + zip + '...')
-
     let flyerData
     try {
       flyerData = await getFlyers(zip)
@@ -96,7 +117,7 @@ async function main() {
       continue
     }
 
-    const flyers = flyerData && flyerData.flyers ? flyerData.flyers : []
+    const flyers = flyerData?.flyers || []
     console.log('Found ' + flyers.length + ' total flyers')
 
     const relevantFlyers = flyers.filter(f => resolveStoreIds(f.merchant).length > 0)
@@ -104,7 +125,7 @@ async function main() {
 
     for (const flyer of relevantFlyers) {
       const storeIds = resolveStoreIds(flyer.merchant)
-      const flyerId = flyer.id
+      const flyerId  = flyer.id
 
       if (seen.has(flyerId)) {
         console.log('Skipping duplicate flyer: ' + flyer.merchant)
@@ -123,27 +144,53 @@ async function main() {
         continue
       }
 
+      // Log raw fields from first item so we can see what Flipp returns
+      if (items.length > 0) {
+        console.log('[flipp-sweep] Sample item keys:', Object.keys(items[0]).join(', '))
+      }
+
       let itemCount = 0
+
       for (const item of items) {
         const price = parsePrice(item.current_price || item.price)
-        const name = item.name && item.name.trim()
+        const name  = item.name?.trim()
         if (!name || price === null) continue
+
+        // Regular price — what it costs without the promo
+        const regularPrice = parsePrice(
+          item.original_price ||
+          item.was_price      ||
+          item.regular_price  ||
+          item.cutoff_price   ||
+          null
+        )
+
+        // Promo description — surfaces "when you buy 2" etc
+        const promoDescription = buildPromoDescription(item)
+
+        // Min quantity required to get the promo price
+        const promoMinQty = parseMinQty(item.pre_price_text || item.sale_story || null)
 
         for (const store_id of storeIds) {
           toInsert.push({
-            barcode: item.sku || null,
-            product_name: name,
+            barcode:          item.sku || null,
+            product_name:     name,
             store_id,
             price,
-            unit: item.unit_price_value || null,
-            sale_type: item.sale_story || null,
-            valid_from: item.valid_from || flyer.valid_from || null,
-            valid_to: item.valid_to || flyer.valid_to || null,
-            source: 'flipp',
+            unit:             item.unit_price_value  || null,
+            sale_type:        item.sale_story        || null,
+            valid_from:       item.valid_from || flyer.valid_from || null,
+            valid_to:         item.valid_to   || flyer.valid_to   || null,
+            source:           'flipp',
+            // ── new promo fields ──
+            regular_price:    regularPrice    || null,
+            promo_min_qty:    promoMinQty     || null,
+            promo_description: promoDescription || null,
           })
         }
         itemCount++
       }
+
       console.log(itemCount + ' valid items')
     }
   }
@@ -155,6 +202,7 @@ async function main() {
 
   console.log('\nWriting ' + toInsert.length + ' items to flipp_observations...')
 
+  // Clear stale records (past valid_to date)
   const today = new Date().toISOString().split('T')[0]
   const { error: deleteError } = await supabase
     .from('flipp_observations')
@@ -167,11 +215,13 @@ async function main() {
     console.log('Stale records cleared')
   }
 
-  const CHUNK = 500
+  // Insert in chunks of 500
+  const CHUNK  = 500
   let inserted = 0
+
   for (let i = 0; i < toInsert.length; i += CHUNK) {
-    const chunk = toInsert.slice(i, i + CHUNK)
-    const { error } = await supabase.from('flipp_observations').insert(chunk)
+    const chunk      = toInsert.slice(i, i + CHUNK)
+    const { error }  = await supabase.from('flipp_observations').insert(chunk)
     if (error) {
       console.error('Batch insert error:', error.message)
     } else {
@@ -179,7 +229,7 @@ async function main() {
     }
   }
 
-  console.log('Sweep complete - ' + inserted + ' items written to flipp_observations')
+  console.log('Sweep complete — ' + inserted + ' items written to flipp_observations')
 }
 
 main().catch(err => {
