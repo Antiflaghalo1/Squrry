@@ -74,7 +74,7 @@ async function getToken() {
 // ─── LOCATIONS ─────────────────────────────────────────────
 async function findStores(token, chain, zipCode) {
   try {
-    const url = `${KROGER_API}/locations?filter.chain=${chain}&filter.zipCode.near=${zipCode}&filter.radiusInMiles=20&filter.limit=10`;
+    const url = `${KROGER_API}/locations?filter.chain=${chain}&filter.zipCode.near=${zipCode}&filter.radiusInMiles=10&filter.limit=10`;
     const res = await fetch(url, {
       headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' }
     });
