@@ -32,7 +32,14 @@ export default function AllDealsView({ onBack }) {
           .or(`valid_to.is.null,valid_to.gte.${today}`)
           .order('price', { ascending: true })
           .limit(200)
-        setDeals(data || [])
+        const dedupeMap = new Map()
+        for (const item of (data || [])) {
+          const key = `${item.product_name}|${item.merchant_name}`
+          if (!dedupeMap.has(key) || item.price < dedupeMap.get(key).price) {
+            dedupeMap.set(key, item)
+          }
+        }
+        setDeals(Array.from(dedupeMap.values()))
       } catch {
         setDeals([])
       }

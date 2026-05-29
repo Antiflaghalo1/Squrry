@@ -108,7 +108,7 @@ export default function HomeView({ user, firstName, budget, onBudgetNav, onSeeAl
         .limit(20)
       const seen = new Set()
       const deduped = (data || []).filter(item => {
-        const key = `${item.product_name}|${item.store_id}`
+        const key = `${item.product_name}|${item.merchant_name}`
         if (seen.has(key)) return false
         seen.add(key)
         return true
