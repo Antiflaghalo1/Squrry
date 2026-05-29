@@ -257,7 +257,7 @@ export default function CategoriesView({ onBack, userId, savedUpcs = new Set(), 
     const groupMap = {}
     for (const item of categoryData) {
       const key = item.normalized_category || 'Miscellaneous'
-      groupMap[key] = { name: key, itemCount: item.count, products: [] }
+      groupMap[key] = { name: key, normalizedCategory: key, itemCount: item.count, products: [] }
     }
 
     setGroups(Object.values(groupMap).sort((a, b) => a.name.localeCompare(b.name)))
