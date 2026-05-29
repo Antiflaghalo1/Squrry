@@ -20,6 +20,7 @@ export default function StoreView({ store, onBack }) {
   const [dealsLoading, setDealsLoading] = useState(true)
   const [communityLoading, setCommunityLoading] = useState(true)
   const [showAllDeals, setShowAllDeals] = useState(false)
+  const [selectedDeal, setSelectedDeal] = useState(null)
 
   useEffect(() => {
     if (!store) return
@@ -32,7 +33,7 @@ export default function StoreView({ store, onBack }) {
     const today = new Date().toISOString().split('T')[0]
     const { data } = await supabase
       .from('flipp_observations')
-      .select('product_name, price, sale_type')
+      .select('product_name, price, sale_type, promo_description, regular_price, clean_image_url, post_price_text, valid_to')
       .eq('store_id', store.id)
       .gt('price', 0)
       .or(`valid_to.is.null,valid_to.gte.${today}`)
@@ -104,10 +105,17 @@ export default function StoreView({ store, onBack }) {
           <>
             <div className="store-deals-list">
               {(showAllDeals ? deals : deals.slice(0, 5)).map((deal, i) => (
-                <div key={i} className="store-deal-row">
-                  <div className="store-deal-name">{categoryEmoji(deal.product_name)} {deal.product_name}</div>
+                <div key={i} className="store-deal-row" style={{ cursor: 'pointer', alignItems: 'flex-start' }} onClick={() => setSelectedDeal(deal)}>
+                  <div className="store-deal-name">
+                    <div>{categoryEmoji(deal.product_name)} {deal.product_name}</div>
+                    {deal.promo_description && <span className="store-deal-promo-badge">{deal.promo_description}</span>}
+                    {deal.post_price_text && <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>{deal.post_price_text}</div>}
+                  </div>
                   <div className="store-deal-right">
-                    <span className="store-deal-price">${Number(deal.price).toFixed(2)}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      {deal.regular_price && <span style={{ fontSize: 13, color: 'var(--text-muted)', textDecoration: 'line-through' }}>${Number(deal.regular_price).toFixed(2)}</span>}
+                      <span className="store-deal-price">${Number(deal.price).toFixed(2)}</span>
+                    </div>
                     {deal.sale_type && <span className="store-deal-type">{deal.sale_type}</span>}
                   </div>
                 </div>
@@ -153,6 +161,35 @@ export default function StoreView({ store, onBack }) {
           </div>
         )}
       </div>
+      {selectedDeal && (
+        <div className="store-deal-modal-overlay" onClick={() => setSelectedDeal(null)}>
+          <div className="store-deal-modal" onClick={e => e.stopPropagation()}>
+            <button
+              onClick={() => setSelectedDeal(null)}
+              style={{ position: 'absolute', top: 12, right: 12, background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: 'var(--text-muted)' }}
+            >✕</button>
+            {selectedDeal.clean_image_url && (
+              <img src={selectedDeal.clean_image_url} alt={selectedDeal.product_name} style={{ maxWidth: 200, display: 'block', margin: '0 auto 12px' }} />
+            )}
+            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8 }}>{selectedDeal.product_name}</div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 8 }}>
+              {selectedDeal.regular_price && (
+                <span style={{ fontSize: 14, color: 'var(--text-muted)', textDecoration: 'line-through' }}>${Number(selectedDeal.regular_price).toFixed(2)}</span>
+              )}
+              <span style={{ fontSize: 20, fontWeight: 800, color: 'var(--green)' }}>${Number(selectedDeal.price).toFixed(2)}</span>
+            </div>
+            {selectedDeal.promo_description && (
+              <span className="store-deal-promo-badge" style={{ display: 'inline-block', marginBottom: 8 }}>{selectedDeal.promo_description}</span>
+            )}
+            {selectedDeal.post_price_text && (
+              <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 8 }}>{selectedDeal.post_price_text}</div>
+            )}
+            {selectedDeal.valid_to && (
+              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Valid to: {new Date(selectedDeal.valid_to).toLocaleDateString()}</div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
