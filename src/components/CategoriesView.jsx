@@ -27,7 +27,7 @@ const CAT_META = {
 
 const SUBCATEGORY_MAP = {
   'Dairy & Eggs': { normalizedCategory: 'Dairy & Eggs', subcategories: ['eggs', 'milk'] },
-  'Bakery':       { normalizedCategory: 'Bakery',       subcategories: ['bread'] },
+  'Bakery & Bread': { normalizedCategory: 'Bakery & Bread', subcategories: ['bread'] },
 };
 
 const SUBCATEGORY_DISPLAY = {
@@ -167,15 +167,15 @@ export default function CategoriesView({ onBack, userId, savedUpcs = new Set(), 
   }, [selectedDept, selectedSubcategory, filters, browsingUntagged])
 
   function handleDeptClick(deptLabel) {
-    const mapping = SUBCATEGORY_MAP[deptLabel];
-    if (!mapping) return;
-    setSelectedDept({ label: deptLabel, ...mapping });
-    setSelectedSubcategory(null);
-    setFilters({ attributes: [], variant: null, size_grade: null, package: null });
-    setBrowsingUntagged(false);
-    setDepartmentBrowse(null);
-    setDrillData(null);
-    setUntaggedItems([]);
+    const mapping = SUBCATEGORY_MAP[deptLabel] || { normalizedCategory: deptLabel, subcategories: [] }
+    setExpanded(null)
+    setSelectedDept({ label: deptLabel, ...mapping })
+    setSelectedSubcategory(null)
+    setFilters({ attributes: [], variant: null, size_grade: null, package: null })
+    setBrowsingUntagged(false)
+    setDepartmentBrowse(null)
+    setDrillData(null)
+    setUntaggedItems([])
   }
 
   function handleBack() {
@@ -762,7 +762,7 @@ export default function CategoriesView({ onBack, userId, savedUpcs = new Set(), 
                   <button
                     key={g.name}
                     className="cat-card"
-                    onClick={() => { handleDeptClick(g.name); setExpanded(g.name); }}
+                    onClick={() => handleDeptClick(g.name)}
                   >
                     <div className="cat-card-top" style={{ background: meta.bg }}>
                       <span className="cat-card-emoji-fade">{meta.emoji}</span>
