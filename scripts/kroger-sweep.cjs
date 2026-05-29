@@ -6,7 +6,7 @@ const { createClient } = require('@supabase/supabase-js');
 // ─── CONFIG ────────────────────────────────────────────────
 const supabase = createClient(
   process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
+  process.env.SUPABASE_SECRET_KEY
 );
 
 const KROGER_CLIENT_ID     = process.env.KROGER_CLIENT_ID;
