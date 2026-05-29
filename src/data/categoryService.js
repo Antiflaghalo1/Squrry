@@ -26,58 +26,53 @@ export async function fetchUntaggedItems(normalizedCategory) {
   const { data: allProducts } = await supabase
     .from('products')
     .select('upc, name, brand, image_url, subcategory, variant, size_grade, package, attributes')
-    .eq('normalized_category', normalizedCategory);
-
+    .eq('normalized_category', normalizedCategory)
+    .limit(10000);
   if (!allProducts || allProducts.length === 0) return [];
-
   const untagged = (allProducts || []).filter(p =>
     !p.subcategory || !p.variant || !p.size_grade || !p.package
   );
-
   if (untagged.length === 0) return [];
-
   const upcList = untagged.map(p => p.upc);
 
-  const { data: observations } = await supabase
-    .from('observations')
-    .select('id, barcode, price, store_id, created_at')
-    .in('barcode', upcList)
-    .eq('voided', false)
-    .limit(10000)
-    .order('created_at', { ascending: false });
+  const allObservations = [];
+  for (let i = 0; i < upcList.length; i += 150) {
+    const chunk = upcList.slice(i, i + 150);
+    const { data: obs } = await supabase
+      .from('observations')
+      .select('id, barcode, price, store_id, created_at')
+      .in('barcode', chunk)
+      .eq('voided', false)
+      .order('created_at', { ascending: false })
+      .limit(10000);
+    if (obs) allObservations.push(...obs);
+  }
 
   const newestPerPair = new Map();
-  for (const obs of observations ?? []) {
+  for (const obs of allObservations) {
     const key = `${obs.barcode}|${obs.store_id}`;
     if (!newestPerPair.has(key)) {
       newestPerPair.set(key, obs);
     }
   }
-
   const uniqueStoreIds = [...new Set(
     Array.from(newestPerPair.values()).map(o => o.store_id)
   )];
-
   const { data: stores } = await supabase
     .from('stores')
     .select('id, name, location, city, color')
     .in('id', uniqueStoreIds);
-
   const storeMap = {};
   for (const store of stores ?? []) {
     storeMap[store.id] = store;
   }
-
   const results = [];
-
   for (const product of untagged) {
     const productObs = Array.from(newestPerPair.values()).filter(
       o => o.barcode === product.upc
     );
     if (productObs.length === 0) continue;
-
     const best = productObs.reduce((a, b) => a.price < b.price ? a : b);
-
     results.push({
       upc: product.upc,
       productName: product.name,
@@ -89,7 +84,6 @@ export async function fetchUntaggedItems(normalizedCategory) {
       observationCount: productObs.length,
     });
   }
-
   return results.sort((a, b) => a.lowestPrice - b.lowestPrice);
 }
 
