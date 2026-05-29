@@ -20,6 +20,10 @@ const KROGER_API           = 'https://api.kroger.com/v1';
 // IE zip codes to search for stores
 const IE_ZIPS = ['91710', '91761', '91764'];
 
+const STORE_ID_OVERRIDES = {
+  'food4less_ontario_2246_s_euclid_ave': 'food4less_ontario',
+}
+
 // Kroger banner chains to sweep
 const CHAINS = ['RALPHS', 'FOOD4LESS'];
 
@@ -140,7 +144,8 @@ function buildDbStoreId(chain, store) {
   const city    = (store.address?.city || '').toLowerCase().replace(/\s+/g, '_')
   const street  = (store.address?.addressLine1 || '').toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')
   const chainId = chain.toLowerCase()
-  return `${chainId}_${city}_${street.slice(0, 20)}`
+  const generated = `${chainId}_${city}_${street.slice(0, 20)}`
+  return STORE_ID_OVERRIDES[generated] || generated
 }
 
 // ─── MAIN ──────────────────────────────────────────────────

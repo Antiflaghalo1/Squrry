@@ -36,7 +36,7 @@ const STORE_MAP = {
   'stater bros':            ['staters_chino_schaefer_ave', 'staters_chino_riverside_dr', 'staters_chino_pine_ave', 'staters_chinohills', 'staters_ontario_ontario_ranch_rd', 'staters_ontario_4th_st', 'staters_ontario_philadelphia_st', 'staters_ontario_holt_blvd', 'staters_ontario_haven_ave'],
   'stater bros markets':    ['staters_chino_schaefer_ave', 'staters_chino_riverside_dr', 'staters_chino_pine_ave', 'staters_chinohills', 'staters_ontario_ontario_ranch_rd', 'staters_ontario_4th_st', 'staters_ontario_philadelphia_st', 'staters_ontario_holt_blvd', 'staters_ontario_haven_ave'],
   'stater bros. markets':   ['staters_chino_schaefer_ave', 'staters_chino_riverside_dr', 'staters_chino_pine_ave', 'staters_chinohills', 'staters_ontario_ontario_ranch_rd', 'staters_ontario_4th_st', 'staters_ontario_philadelphia_st', 'staters_ontario_holt_blvd', 'staters_ontario_haven_ave'],
-  'food 4 less':            ['food4less_ontario'],
+  'food 4 less':            ['food4less_ontario', 'food4less_rancho_cucamonga_12879_foothill_blvd'],
   'aldi':                   ['aldi_chino'],
   'sprouts':                ['sprouts_chinohills'],
   'sprouts farmers market': ['sprouts_chinohills'],
