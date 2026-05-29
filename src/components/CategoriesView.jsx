@@ -154,6 +154,11 @@ export default function CategoriesView({ onBack, userId, savedUpcs = new Set(), 
       } else {
         const b = await fetchDepartmentBrowse(selectedDept.normalizedCategory);
         if (!cancelled) setDepartmentBrowse(b);
+        if (!cancelled && b.subcategories.length === 0 && b.untaggedCount > 0) {
+          setBrowsingUntagged(true);
+          const u = await fetchUntaggedItems(selectedDept.normalizedCategory);
+          if (!cancelled) setUntaggedItems(u || []);
+        }
       }
 
       if (!cancelled) setBrowseLoading(false);
