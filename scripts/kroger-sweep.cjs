@@ -199,6 +199,8 @@ async function main() {
 
     const storeItems = new Map(); // upc → item
 
+    const token = await getToken();
+
     for (const term of SEARCH_TERMS) {
       await sleep(DELAY_MS);
       let termCount = 0;
