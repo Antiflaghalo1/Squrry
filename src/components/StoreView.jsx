@@ -111,12 +111,15 @@ export default function StoreView({ store, onBack }) {
                     {deal.promo_description && <span className="store-deal-promo-badge">{deal.promo_description}</span>}
                     {deal.post_price_text && <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>{deal.post_price_text}</div>}
                   </div>
-                  <div className="store-deal-right">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      {deal.regular_price && <span style={{ fontSize: 13, color: 'var(--text-muted)', textDecoration: 'line-through' }}>${Number(deal.regular_price).toFixed(2)}</span>}
-                      <span className="store-deal-price">${Number(deal.price).toFixed(2)}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div className="store-deal-right">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        {deal.regular_price && <span style={{ fontSize: 13, color: 'var(--text-muted)', textDecoration: 'line-through' }}>${Number(deal.regular_price).toFixed(2)}</span>}
+                        <span className="store-deal-price">${Number(deal.price).toFixed(2)}</span>
+                      </div>
+                      {deal.sale_type && <span className="store-deal-type">{deal.sale_type}</span>}
                     </div>
-                    {deal.sale_type && <span className="store-deal-type">{deal.sale_type}</span>}
+                    <span style={{ fontSize: 18, color: 'var(--text-muted)' }}>›</span>
                   </div>
                 </div>
               ))}
@@ -169,7 +172,7 @@ export default function StoreView({ store, onBack }) {
               style={{ position: 'absolute', top: 12, right: 12, background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: 'var(--text-muted)' }}
             >✕</button>
             {selectedDeal.clean_image_url && (
-              <img src={selectedDeal.clean_image_url} alt={selectedDeal.product_name} style={{ maxWidth: 200, display: 'block', margin: '0 auto 12px' }} />
+              <img src={selectedDeal.clean_image_url} alt={selectedDeal.product_name} style={{ maxWidth: '180px', maxHeight: '180px', objectFit: 'contain', marginBottom: '12px', display: 'block', margin: '0 auto 12px' }} />
             )}
             <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8 }}>{selectedDeal.product_name}</div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 8 }}>
