@@ -117,14 +117,31 @@ export default function HomeView({ user, firstName, budget, onBudgetNav, onSeeAl
         .gt('price', 0)
         .or(`valid_to.is.null,valid_to.gte.${today}`)
         .order('price', { ascending: true })
-        .limit(10)
+        .limit(20)
       const seen = new Set()
-      const deduped = (data || []).filter(item => {
+      let deduped = (data || []).filter(item => {
         const key = `${item.product_name}|${item.merchant_name}`
         if (seen.has(key)) return false
         seen.add(key)
         return true
       })
+      if (deduped.length < 8) {
+        const { data: fallbackData } = await supabase
+          .from('flipp_observations')
+          .select('product_name, store_id, price, valid_to, sale_type, regular_price, promo_description, clean_image_url, post_price_text')
+          .gt('price', 0)
+          .or(`valid_to.is.null,valid_to.gte.${today}`)
+          .order('price', { ascending: true })
+          .limit(20)
+        const bestByKey = new Map()
+        for (const item of [...deduped, ...(fallbackData || [])]) {
+          const key = `${item.product_name}|${item.merchant_name}`
+          if (!bestByKey.has(key) || item.price < bestByKey.get(key).price) {
+            bestByKey.set(key, item)
+          }
+        }
+        deduped = Array.from(bestByKey.values()).slice(0, 10)
+      }
       for (let i = deduped.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [deduped[i], deduped[j]] = [deduped[j], deduped[i]]

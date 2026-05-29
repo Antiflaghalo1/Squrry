@@ -11,6 +11,7 @@ export default function SearchView({ onBack, onStoreSelect }) {
   const [loading, setLoading] = useState(false)
   const [searched, setSearched] = useState(false)
   const [stores, setStores] = useState([])
+  const [selectedDeal, setSelectedDeal] = useState(null)
   const inputRef = useRef(null)
   const timerRef = useRef(null)
 
@@ -174,7 +175,7 @@ export default function SearchView({ onBack, onStoreSelect }) {
                 {deals.map((deal, i) => {
                   const storeName = stores.find(s => String(s.id) === String(deal.store_id))?.name || deal.store_id
                   return (
-                    <div key={i} className="recent-card">
+                    <div key={i} className="recent-card" onClick={() => setSelectedDeal(deal)} style={{cursor:'pointer'}}>
                       <div className="recent-thumb recent-thumb-placeholder">🏷️</div>
                       <div className="recent-info">
                         <div className="recent-name">{deal.product_name}</div>
@@ -190,6 +191,23 @@ export default function SearchView({ onBack, onStoreSelect }) {
               </div>
             </div>
           )}
+        </div>
+      )}
+      {selectedDeal && (
+        <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.5)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={() => setSelectedDeal(null)}>
+          <div style={{background:'var(--card-bg)',borderRadius:16,padding:24,maxWidth:320,width:'90%',position:'relative',textAlign:'center'}} onClick={e => e.stopPropagation()}>
+            <button onClick={() => setSelectedDeal(null)} style={{position:'absolute',top:12,right:12,background:'none',border:'none',fontSize:18,cursor:'pointer',color:'var(--text-muted)'}}>✕</button>
+            {selectedDeal.clean_image_url && <img src={selectedDeal.clean_image_url} alt={selectedDeal.product_name} style={{maxWidth:180,maxHeight:180,objectFit:'contain',display:'block',margin:'0 auto 12px'}} />}
+            <div style={{fontWeight:700,fontSize:16,marginBottom:8}}>{selectedDeal.product_name}</div>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8,marginBottom:8}}>
+              {selectedDeal.regular_price && <span style={{fontSize:14,color:'var(--text-muted)',textDecoration:'line-through'}}>${Number(selectedDeal.regular_price).toFixed(2)}</span>}
+              <span style={{fontSize:20,fontWeight:800,color:'var(--green)'}}>${Number(selectedDeal.price).toFixed(2)}</span>
+            </div>
+            {selectedDeal.promo_description && <span className="store-deal-promo-badge" style={{display:'inline-block',marginBottom:8}}>{selectedDeal.promo_description}</span>}
+            {selectedDeal.post_price_text && <div style={{fontSize:10,color:'var(--text-muted)',marginBottom:8}}>{selectedDeal.post_price_text}</div>}
+            {selectedDeal.valid_to && <div style={{fontSize:12,color:'var(--text-muted)'}}>Valid to: {new Date(selectedDeal.valid_to).toLocaleDateString()}</div>}
+            <div style={{fontSize:12,color:'var(--green)',marginTop:8,fontWeight:600}}>{selectedDeal.merchant_name}</div>
+          </div>
         </div>
       )}
     </div>

@@ -14,6 +14,18 @@ function categoryEmoji(name) {
   return '🛒'
 }
 
+function dedupDeals(items) {
+  const seen = new Map()
+  for (const item of items) {
+    const key = `${item.product_name}|${item.merchant_name}`
+    const existing = seen.get(key)
+    if (!existing || Number(item.price) < Number(existing.price)) {
+      seen.set(key, item)
+    }
+  }
+  return [...seen.values()]
+}
+
 export default function AllDealsView({ onBack }) {
   const [deals, setDeals] = useState([])
   const [loading, setLoading] = useState(true)
@@ -34,14 +46,7 @@ export default function AllDealsView({ onBack }) {
           .or(`valid_to.is.null,valid_to.gte.${today}`)
           .order('price', { ascending: true })
           .range(0, 49)
-        const dedupeMap = new Map()
-        for (const item of (data || [])) {
-          const key = `${item.product_name}|${item.merchant_name}`
-          if (!dedupeMap.has(key) || item.price < dedupeMap.get(key).price) {
-            dedupeMap.set(key, item)
-          }
-        }
-        setDeals(Array.from(dedupeMap.values()))
+        setDeals(dedupDeals(data || []))
         setHasMore((data || []).length >= 50)
       } catch {
         setDeals([])
@@ -64,7 +69,7 @@ export default function AllDealsView({ onBack }) {
         .order('price', { ascending: true })
         .range(from, to)
       const newItems = data || []
-      setDeals(prev => [...prev, ...newItems])
+      setDeals(prev => dedupDeals([...prev, ...newItems]))
       setPage(p => p + 1)
       if (newItems.length < 50) setHasMore(false)
     } catch {
@@ -73,7 +78,7 @@ export default function AllDealsView({ onBack }) {
   }
 
   const merchants = ['All', ...Array.from(new Set(deals.map(d => d.merchant_name).filter(Boolean)))]
-  const filtered = filterMerchant === 'All' ? deals : deals.filter(d => d.merchant_name === filterMerchant)
+  const displayed = filterMerchant === 'All' ? deals : deals.filter(d => d.merchant_name === filterMerchant)
 
   return (
     <div style={{ background: 'var(--bg)', minHeight: '100vh', padding: 16 }}>
@@ -109,11 +114,11 @@ export default function AllDealsView({ onBack }) {
 
       {loading ? (
         <p style={{ color: 'var(--text-muted)', textAlign: 'center', marginTop: 40 }}>Loading deals…</p>
-      ) : filtered.length === 0 ? (
+      ) : displayed.length === 0 ? (
         <p style={{ color: 'var(--text-muted)', textAlign: 'center', marginTop: 40 }}>No deals found.</p>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {filtered.map((deal, i) => (
+          {displayed.map((deal, i) => (
             <div
               key={i}
               onClick={() => setSelectedDeal(deal)}
