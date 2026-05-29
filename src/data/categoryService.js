@@ -91,7 +91,8 @@ export async function fetchDepartmentBrowse(normalizedCategory) {
   const { data: allProducts } = await supabase
     .from('products')
     .select('upc, subcategory, image_url, variant, size_grade, package, attributes')
-    .eq('normalized_category', normalizedCategory);
+    .eq('normalized_category', normalizedCategory)
+    .limit(10000);
 
   if (!allProducts) return { subcategories: [], untaggedCount: 0 };
 

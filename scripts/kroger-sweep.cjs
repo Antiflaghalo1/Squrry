@@ -117,6 +117,19 @@ async function searchProducts(token, locationId, term, start = 0) {
   }
 }
 
+function normalizeCat(rawCategory) {
+  const map = {
+    'Adult Beverage':'Beverages','Baby':'Baby & Kids','Bakery':'Bakery & Bread',
+    'Baking Goods':'Pantry & Canned','Beauty':'Health & Beauty','Beverages':'Beverages',
+    'Breakfast':'Breakfast & Cereal','Candy':'Snacks & Candy','Canned & Packaged':'Pantry & Canned',
+    'Cleaning Products':'Household & Cleaning','Condiment & Sauces':'Pantry & Canned','Dairy':'Dairy & Eggs',
+    'Deli':'Meat & Seafood','Frozen':'Frozen Foods','Health':'Health & Beauty','International':'Pantry & Canned',
+    'Meat & Seafood':'Meat & Seafood','Natural & Organic':'Pantry & Canned','Pasta, Sauces, Grain':'Pantry & Canned',
+    'Personal Care':'Health & Beauty','Pet Care':'Pet Care','Produce':'Produce','Snacks':'Snacks & Candy',
+  }
+  return map[rawCategory] || 'Miscellaneous'
+}
+
 // ─── ITEM EXTRACTION ───────────────────────────────────────
 function extractItem(product, locationId) {
   const upc   = product.upc;
@@ -246,7 +259,8 @@ async function main() {
         name:            item.name,
         brand:           item.brand || null,
         image_url:       item.imageUrl || null,
-        raw_category:    item.category || null,
+        raw_category:         item.category || null,
+        normalized_category:  normalizeCat(item.category),
         name_source:     'kroger_sweep',
         last_scanned_at: now,
       });
