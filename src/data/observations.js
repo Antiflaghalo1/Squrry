@@ -43,6 +43,47 @@ export async function addObservation(obs, userId) {
   }
 }
 
+export async function submitProductForReview(submission, userId) {
+  const dbRow = {
+    ...(userId && { submitted_by: userId }),
+    barcode: submission.barcode ? String(submission.barcode) : null,
+    product_name: submission.name,
+    brand: submission.brand || null,
+    category: submission.category || null,
+    normalized_category: normalizeCategory(submission.category || '', submission.name || ''),
+    quantity: submission.quantity || null,
+    image_url: submission.image_url || null,
+    store_id: submission.storeId,
+    price: submission.price,
+    price_unit: submission.price_unit || 'ea',
+    promo_type: submission.promo_type || 'regular',
+    promo_price: submission.promo_price || null,
+    promo_quantity: submission.promo_quantity || null,
+    has_photo: submission.hasPhoto || false,
+    status: 'pending',
+    source: submission.barcode ? 'scan' : 'manual',
+  }
+
+  const timeout = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error('timeout')), 5000))
+
+  try {
+    const result = await Promise.race([
+      supabase.from('product_submissions').insert(dbRow),
+      timeout,
+    ])
+    if (result?.error) throw result.error
+    return { queued: false }
+  } catch {
+    try {
+      const queue = JSON.parse(localStorage.getItem('squrry_product_submission_queue') || '[]')
+      queue.push({ ...dbRow, queued_at: new Date().toISOString() })
+      localStorage.setItem('squrry_product_submission_queue', JSON.stringify(queue))
+    } catch {}
+    return { queued: true }
+  }
+}
+
 export async function upsertProduct(product) {
   const mkTimeout = () => new Promise((_, reject) =>
     setTimeout(() => reject(new Error('timeout')), 5000))
@@ -69,6 +110,15 @@ export async function upsertProduct(product) {
     const existing = selectResult?.data
     const isApiSource = product.source === 'OFF' || product.source === 'UPCitemdb'
     const existingHighConfidence = existing && (existing.name_confidence ?? 1) > 1
+
+    if (existing && product.preserveExistingProduct) {
+      const updateResult = await Promise.race([
+        supabase.from('products').update({ last_scanned_at: row.last_scanned_at }).eq('upc', row.upc),
+        mkTimeout(),
+      ])
+      if (updateResult?.error) throw updateResult.error
+      return
+    }
 
     if (existingHighConfidence && !isApiSource) {
       // High-confidence name wins — only refresh the timestamp

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode'
 import { getAllStores } from '../data/storeService'
 import { PRODUCTS } from '../data/products'
-import { addObservation, upsertProduct, fetchCategorySchema, upsertProductAttribute } from '../data/observations'
+import { addObservation, upsertProduct, submitProductForReview, fetchCategorySchema, upsertProductAttribute } from '../data/observations'
 import { getCustomStores, addCustomStore } from '../data/customStores'
 import { supabase } from '../lib/supabase'
 import ReportModal from './ReportModal'
@@ -119,6 +119,7 @@ export default function ScanView({ onBack, user }) {
   const [selectedCategory, setSelectedCategory] = useState('')
   const [showReportModal, setShowReportModal] = useState(false)
   const [savedQueued, setSavedQueued] = useState(false)
+  const [stagedSubmission, setStagedSubmission] = useState(false)
   const [apiLookupStatus, setApiLookupStatus] = useState(null)
   const [torchOn, setTorchOn] = useState(false)
   const [torchSupported, setTorchSupported] = useState(false)
@@ -653,32 +654,75 @@ export default function ScanView({ onBack, user }) {
     const finalName = productName.trim() || `Item #${barcode}`
     if (!productName.trim()) setProductName(finalName)
     localStorage.setItem('squrry_last_store', storeId)
-    await upsertProduct({
-      upc: barcode,
-      name: finalName,
-      brand: productBrand,
-      category: productCategory || selectedCategory || 'Miscellaneous',
-      quantity: productQuantity,
-      image_url: productImageUrl,
-      ...(!recognizedProduct && {
-        normalized_category: apiLookupStatus === 'found'
-          ? normalizeCategory(productCategory)
-          : selectedCategory || 'Miscellaneous',
-      }),
-    })
-    const { queued } = await addObservation({
-      barcode,
-      productName: finalName,
-      storeId,
+
+    const canonicalBarcode = recognizedProduct?.upc || barcode
+
+    const knownSqurryProduct = !!recognizedProduct
+    const externallyFoundProduct = !recognizedProduct && apiLookupStatus === 'found'
+    const unknownManualProduct = !recognizedProduct && apiLookupStatus !== 'found'
+
+    const priceFields = {
       price: parseFloat(parsedPrice.toFixed(2)),
       price_unit: priceUnit,
       promo_type: promoType,
       promo_price: promoPrice ? parseFloat(parseFloat(promoPrice).toFixed(2)) : null,
       promo_quantity: promoQuantity ? parseInt(promoQuantity) : null,
-      timestamp: Date.now(),
       hasPhoto: !!photoBlob,
-    }, user?.id)
-    setSavedQueued(queued)
+    }
+
+    if (knownSqurryProduct) {
+      await upsertProduct({
+        upc: canonicalBarcode,
+        name: finalName,
+        brand: productBrand,
+        category: productCategory || selectedCategory || 'Miscellaneous',
+        quantity: productQuantity,
+        image_url: productImageUrl,
+        preserveExistingProduct: true,
+      })
+      const { queued } = await addObservation({
+        barcode: canonicalBarcode,
+        productName: finalName,
+        storeId,
+        ...priceFields,
+        timestamp: Date.now(),
+      }, user?.id)
+      setSavedQueued(queued)
+      setStagedSubmission(false)
+    } else if (externallyFoundProduct) {
+      await upsertProduct({
+        upc: canonicalBarcode || barcode,
+        name: finalName,
+        brand: productBrand,
+        category: productCategory || selectedCategory || 'Miscellaneous',
+        quantity: productQuantity,
+        image_url: productImageUrl,
+        normalized_category: normalizeCategory(productCategory),
+      })
+      const { queued } = await addObservation({
+        barcode: canonicalBarcode || barcode,
+        productName: finalName,
+        storeId,
+        ...priceFields,
+        timestamp: Date.now(),
+      }, user?.id)
+      setSavedQueued(queued)
+      setStagedSubmission(false)
+    } else if (unknownManualProduct) {
+      const { queued } = await submitProductForReview({
+        barcode,
+        name: finalName,
+        brand: productBrand,
+        category: productCategory || selectedCategory || 'Miscellaneous',
+        quantity: productQuantity,
+        image_url: productImageUrl,
+        storeId,
+        ...priceFields,
+      }, user?.id)
+      setSavedQueued(queued)
+      setStagedSubmission(true)
+    }
+
     setPhase('saved')
   }
 
@@ -704,6 +748,7 @@ export default function ScanView({ onBack, user }) {
     setApiLookupStatus(null)
     setShowReportModal(false)
     setSavedQueued(false)
+    setStagedSubmission(false)
     setPriceUnit('ea')
     setPromoType('regular')
     setPromoPrice('')
@@ -715,6 +760,7 @@ export default function ScanView({ onBack, user }) {
   const allStores = [...stores, ...customStores]
   const savedStore = allStores.find(s => s.id === storeId)
   const autoCategory = recognizedProduct?.normalized_category || normalizeCategory(productCategory)
+  const productInfoLocked = !!productName.trim() && (!!recognizedProduct || apiLookupStatus === 'found')
 
   return (
     <div className="scan-view">
@@ -983,12 +1029,21 @@ export default function ScanView({ onBack, user }) {
           {lookingUp ? (
             <p className="scan-looking">Looking up product…</p>
           ) : (
-            <input
-              className="scan-input"
-              placeholder="Enter product name"
-              value={productName}
-              onChange={e => setProductName(e.target.value)}
-            />
+            <>
+              <input
+                className="scan-input"
+                placeholder="Enter product name"
+                value={productName}
+                readOnly={productInfoLocked}
+                onChange={e => { if (!productInfoLocked) setProductName(e.target.value) }}
+                style={productInfoLocked ? { color: 'var(--text-muted)', background: 'var(--surface-alt, #f5f5f5)', cursor: 'default' } : undefined}
+              />
+              {productInfoLocked && (
+                <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--text-muted)' }}>
+                  We have this item — just update the price.
+                </p>
+              )}
+            </>
           )}
 
           {/* Category */}
@@ -1248,10 +1303,14 @@ export default function ScanView({ onBack, user }) {
       {phase === 'saved' && (
         <div className="scan-form scan-saved-screen">
           <div className="scan-saved-check">✓</div>
-          <h2 className="scan-saved-title">Price Saved!</h2>
+          <h2 className="scan-saved-title">{stagedSubmission ? 'Submitted for Review!' : 'Price Saved!'}</h2>
           <div className="scan-saved-detail">
             <span className="scan-saved-name">{productName}</span>
-            <span className="scan-saved-meta">${parseFloat(price).toFixed(2)} at {savedStore?.name}</span>
+            {stagedSubmission ? (
+              <span className="scan-saved-meta">We'll review this new item before it appears in Squrry.</span>
+            ) : (
+              <span className="scan-saved-meta">${parseFloat(price).toFixed(2)} at {savedStore?.name}</span>
+            )}
             {photoBlob && <span className="scan-saved-meta">📷 Photo attached</span>}
             {savedQueued && (
               <span style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 2 }}>Saved locally — will sync when online</span>
