@@ -45,50 +45,37 @@ const DELAY_MS  = 1500;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 // ─── TOKEN ─────────────────────────────────────────────────
-// Launches headless Chromium via Playwright.
-// Passes Cloudflare naturally (real browser), intercepts the
-// outgoing Mercatus API request and pulls the Bearer token.
-// Falls back to STATER_TOKEN env var if set (manual override).
 async function getGuestToken() {
   if (process.env.STATER_TOKEN) {
     console.log('[stater-sweep] ✅ Using token from STATER_TOKEN env');
     return process.env.STATER_TOKEN;
   }
-
-  console.log('[stater-sweep] Launching headless browser to fetch token...');
-
+  console.log('[stater-sweep] Launching browser to fetch token...');
   const { chromium } = require('playwright');
-
-  const browser = await chromium.launch({ headless: true });
-  const context = await browser.newContext({
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36',
-  });
-  const page = await context.newPage();
-
-  let token = null;
-
-  // Intercept every outgoing request — grab Bearer token when Mercatus fires
-  page.on('request', request => {
-    if (request.url().includes('api-dxpro.mercatus.com')) {
-      const auth = request.headers()['authorization'];
-      if (auth?.startsWith('Bearer ')) {
-        token = auth.replace('Bearer ', '');
-      }
-    }
-  });
-
-  // Navigate to search — triggers the Mercatus API call naturally
-  await page.goto('https://www.staterbros.com/en/groceries/search?kw=eggs', {
-    waitUntil: 'domcontentloaded',
-    timeout:   90000,
-  });
-
-  await browser.close();
-
-  if (!token) throw new Error('Browser loaded but token not captured — Cloudflare may have intervened');
-
-  console.log('[stater-sweep] ✅ Token extracted via browser');
-  return token;
+  const browser = await chromium.launch({ headless: true, args: ['--no-sandbox','--disable-dev-shm-usage','--disable-blink-features=AutomationControlled'] });
+  let token = null, lastMercatusUrl = null;
+  try {
+    const context = await browser.newContext({ viewport:{width:1365,height:900}, locale:'en-US', timezoneId:'America/Los_Angeles', userAgent:'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36', extraHTTPHeaders:{'accept-language':'en-US,en;q=0.9'} });
+    await context.addInitScript(() => { Object.defineProperty(navigator,'webdriver',{get:()=>undefined}); });
+    const page = await context.newPage();
+    page.on('request', req => {
+      if (!req.url().includes('api-dxpro.mercatus.com')) return;
+      lastMercatusUrl = req.url();
+      const auth = req.headers()['authorization'];
+      if (auth && auth.startsWith('Bearer ')) token = auth.slice(7).trim();
+    });
+    const findToken = async () => { try { return await page.evaluate(() => { const jwt=/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/,bearer=/Bearer\s+([A-Za-z0-9._-]+)/i; for (const s of [localStorage,sessionStorage]) for (let i=0;i<s.length;i++) { const v=s.getItem(s.key(i))||''; const bm=v.match(bearer); if(bm?.[1]) return bm[1]; const jm=v.match(jwt); if(jm?.[0]) return jm[0]; } return null; }); } catch { return null; } };
+    await page.goto('https://www.staterbros.com/',{waitUntil:'domcontentloaded',timeout:90000});
+    await page.waitForLoadState('networkidle',{timeout:30000}).catch(()=>{});
+    await page.getByRole('button',{name:/accept|allow|agree/i}).click({timeout:5000}).catch(()=>{});
+    await page.goto('https://www.staterbros.com/en/groceries/search?kw=eggs',{waitUntil:'domcontentloaded',timeout:90000});
+    await page.waitForLoadState('networkidle',{timeout:30000}).catch(()=>{});
+    for (let i=0;i<20&&!token;i++) { token=await findToken(); if(token) break; await page.waitForTimeout(1000); }
+    if (!token) { const sb=page.locator('input[type="search"],input[placeholder*="Search" i]').first(); if(await sb.count()) { await sb.click({timeout:5000}).catch(()=>{}); await sb.fill('eggs').catch(()=>{}); await page.keyboard.press('Enter').catch(()=>{}); } for(let i=0;i<30&&!token;i++) { token=await findToken(); if(token) break; await page.waitForTimeout(1000); } }
+    if (!token) { console.warn('[stater-sweep] Mercatus request seen: '+(lastMercatusUrl?'yes':'no')); throw new Error('Browser loaded but token was not captured'); }
+    console.log('[stater-sweep] ✅ Token extracted via browser');
+    return token;
+  } finally { await browser.close().catch(()=>{}); }
 }
 
 // ─── SEARCH ────────────────────────────────────────────────
