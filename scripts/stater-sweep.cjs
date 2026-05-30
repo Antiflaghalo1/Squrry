@@ -1,5 +1,4 @@
 const ws = require('ws');
-#!/usr/bin/env node
 'use strict';
 
 const { createClient } = require('@supabase/supabase-js');
