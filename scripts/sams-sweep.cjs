@@ -40,63 +40,180 @@ const CHUNK     = 500
 const sleep = ms => new Promise(r => setTimeout(r, ms))
 
 // ─── SEARCH ────────────────────────────────────────────────
-async function searchProducts(storeId, term, page = 1) {
-  const variables = {
-    query:                term,
+const SAMS_APP_VERSION = 'samsus-w-1.2.0-b7e99c40c34d6f828ba67ae0b351fddeada3d56b-0528'
+
+function makeCorrelationId() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`
+}
+
+function buildSearchVariables(term, page) {
+  const baseParams = {
+    id: '',
+    dealsId: '',
+    query: term,
+    nudgeContext: '',
     page,
-    ps:                   PAGE_SIZE,
-    prg:                  'mWeb',
-    tenant:               'SAMS_GLASS',
-    sort:                 'best_match',
-    catId:                '',
-    facet:                '',
-    fungibilityEnabled:   false,
-    fetchMarquee:         false,
-    fetchSkyline:         false,
-    fetchGallery:         false,
-    fetchSbaTop:          false,
-    fetchDac:             false,
-    fetchDataV1:          false,
-    fetchDataV2:          false,
+    prg: 'mWeb',
+    catId: '',
+    facet: '',
+    sort: 'best_match',
+    rawFacet: '',
+    seoPath: '',
+    ps: PAGE_SIZE,
+    limit: PAGE_SIZE,
+    ptss: '',
+    trsp: '',
+    beShelfId: '',
+    recall_set: '',
+    module_search: '',
+    min_price: '',
+    max_price: '',
+    storeSlotBooked: '',
     additionalQueryParams: {
+      minPrice: '',
+      maxPrice: '',
+      hidden_facet: null,
+      translation: null,
       isMoreOptionsTileEnabled: true,
-      isGenAiEnabled:           false,
+      isGenAiEnabled: true,
+      rootDimension: '',
+      altQuery: '',
+      selectedFilter: '',
+      neuralSearchSeeAll: false,
+      isModuleArrayReq: false,
+      enableGenericItemTileOptions: false,
+      isLMPBrowsePage: false,
     },
+    searchArgs: {
+      query: term,
+      cat_id: '',
+      prg: 'mWeb',
+      facet: '',
+    },
+    enableDesktopHighlights: false,
+    enableVolumePricing: false,
+    enableCopyBlock: true,
+    enableVariantCount: false,
+    enableSlaBadgeV2: false,
+    enableUnifiedProductFragment: false,
+    enableESSCarousel: false,
   }
 
+  return {
+    ...baseParams,
+    fitmentFieldParams: {
+      powerSportEnabled: true,
+      dynamicFitmentEnabled: true,
+      extendedAttributesEnabled: true,
+      extendedAttributesV2Enabled: false,
+      fuelTypeEnabled: false,
+    },
+    fitmentSearchParams: {
+      ...baseParams,
+      cat_id: '',
+      _be_shelf_id: '',
+    },
+    searchParams: {
+      ...baseParams,
+      cat_id: '',
+      _be_shelf_id: '',
+    },
+    fetchBadSplit: true,
+    enableFashionTopNav: false,
+    enableUnifiedSchema: false,
+    postProcessingVersion: 1,
+    version: 'v1',
+    enableRelatedSearches: true,
+    enablePortableFacets: true,
+    enableFacetCount: true,
+    fetchMarquee: true,
+    fetchSkyline: true,
+    fetchGallery: false,
+    fetchSbaTop: true,
+    fetchDataV1: false,
+    fetchDataV2: false,
+    fungibilityEnabled: false,
+    enableAdsPromoData: false,
+    fetchDac: false,
+    tenant: 'SAMS_GLASS',
+    enableMultiSave: false,
+    enableInStoreShelfMessage: false,
+    enableSellerType: false,
+    enableItemRank: false,
+    enableOptimisticWeightUpdate: false,
+    enableAdditionalSearchDepartmentAnalytics: false,
+    enableFulfillmentTagsEnhacements: false,
+    enableRxDrugScheduleModal: false,
+    enablePromoData: false,
+    enableSignInToSeePrice: true,
+    enablePromotionMessages: true,
+    enableDebugAnalyticsTags: true,
+    enableItemLimits: true,
+    enableCanAddToList: true,
+    enableIsFreeWarranty: true,
+    enableShopSimilarBottomSheet: false,
+    adsParams: {
+      fungibilityEnabled: false,
+    },
+    pageType: 'SearchPage',
+  }
+}
+
+async function searchProducts(storeId, term, page = 1) {
+  const variables = buildSearchVariables(term, page)
   const url = `${GRAPHQL_BASE}?variables=${encodeURIComponent(JSON.stringify(variables))}`
+  const correlationId = makeCorrelationId()
+  const pageUrl = `https://www.samsclub.com/search?q=${encodeURIComponent(term)}`
 
   try {
     const res = await fetch(url, {
       headers: {
-        'accept':                  'application/json',
-        'content-type':            'application/json',
-        'tenant-id':               'gj9b60',
-        'x-o-bu':                  'SAMS-US',
-        'x-o-mart':                'B2C',
-        'x-o-platform':            'rweb',
+        'accept': 'application/json',
+        'accept-language': 'en-US',
+        'content-type': 'application/json',
+        'dnt': '1',
+        'referer': pageUrl,
+        'sec-ch-ua': '"Chromium";v="148", "Google Chrome";v="148", "Not/A)Brand";v="99"',
+        'sec-ch-ua-mobile': '?0',
+        'sec-ch-ua-platform': '"Windows"',
+        'sec-fetch-dest': 'empty',
+        'sec-fetch-mode': 'cors',
+        'sec-fetch-site': 'same-origin',
+        'tenant-id': 'gj9b60',
+        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36',
+        'wm_mp': 'true',
+        'wm_page_url': pageUrl,
+        'wm_qos.correlation_id': correlationId,
         'x-apollo-operation-name': 'Search',
-        'user-agent':              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36',
-        // Pass store ID via cookie for store-specific pricing
-        'cookie':                  `assortmentStoreId=${storeId}`,
+        'x-enable-server-timing': '1',
+        'x-latency-trace': '1',
+        'x-o-bu': 'SAMS-US',
+        'x-o-ccm': 'server',
+        'x-o-correlation-id': correlationId,
+        'x-o-gql-query': 'query Search',
+        'x-o-mart': 'B2C',
+        'x-o-platform': 'rweb',
+        'x-o-platform-version': SAMS_APP_VERSION,
+        'x-o-segment': 'oaoh',
+        'cookie': `assortmentStoreId=${storeId}; hasLocData=1; xptc=assortmentStoreId%2B${storeId}`,
       },
     })
 
     if (!res.ok) {
       console.warn(`[sams-sweep] HTTP ${res.status} for "${term}"`)
-      return { items: [], total: 0 }
+      return { items: [], total: 0, status: res.status }
     }
 
-    const data       = await res.json()
-    const stacks     = data?.data?.search?.searchResult?.itemStacks || []
-    const stack      = stacks[0] || {}
-    const items      = stack.itemsV2 || []
-    const total      = stack.meta?.totalItemCount || 0
+    const data = await res.json()
+    const stacks = data?.data?.search?.searchResult?.itemStacks || []
+    const stack = stacks[0] || {}
+    const items = stack.itemsV2 || []
+    const total = stack.meta?.totalItemCount || 0
 
-    return { items, total }
+    return { items, total, status: res.status }
   } catch (err) {
     console.warn(`[sams-sweep] Fetch error "${term}": ${err.message}`)
-    return { items: [], total: 0 }
+    return { items: [], total: 0, status: 0 }
   }
 }
 
