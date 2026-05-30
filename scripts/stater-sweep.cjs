@@ -1,3 +1,4 @@
+const ws = require('ws');
 #!/usr/bin/env node
 'use strict';
 
@@ -6,7 +7,8 @@ const { createClient } = require('@supabase/supabase-js');
 // ─── CONFIG ────────────────────────────────────────────────
 const supabase = createClient(
   process.env.SUPABASE_URL,
-  process.env.SUPABASE_SECRET_KEY
+  process.env.SUPABASE_SECRET_KEY,
+  { realtime: { transport: ws } }
 );
 
 const SEARCH_API = 'https://api-dxpro.mercatus.com/gateway/product/v2.0/api/search';
