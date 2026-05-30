@@ -1,0 +1,35 @@
+name: Target Sweep
+
+on:
+  schedule:
+    - cron: '0 10 * * 3'  # Wednesdays 10am UTC (after Sam's Club)
+    - cron: '0 10 * * 6'  # Saturdays 10am UTC
+  workflow_dispatch:
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install @supabase/supabase-js ws playwright
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Target sweep
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: node scripts/target-sweep.cjs
+
+      - name: Log completion
+        run: echo "✅ Target sweep completed at $(date)"
