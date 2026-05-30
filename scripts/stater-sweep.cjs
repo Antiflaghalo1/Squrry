@@ -79,8 +79,8 @@ async function getGuestToken() {
 
   // Navigate to search — triggers the Mercatus API call naturally
   await page.goto('https://www.staterbros.com/en/groceries/search?kw=eggs', {
-    waitUntil: 'networkidle',
-    timeout:   45000,
+    waitUntil: 'domcontentloaded',
+    timeout:   90000,
   });
 
   await browser.close();
